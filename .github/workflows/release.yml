@@ -244,7 +244,10 @@ jobs:
           path: release-assets
 
       - name: Create GitHub Release
+        # fork 仓库的 GITHUB_TOKEN 是只读的，无法创建 Release；
+        # 配置了 TMD_RELEASE_PAT（具有 repo 权限的 PAT）时优先使用它，否则回退到 GITHUB_TOKEN。
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.TMD_RELEASE_PAT || github.token }}
           files: release-assets/*
           generate_release_notes: true
