@@ -2,14 +2,14 @@
 
 ## 设计方向
 
-Notra 使用 Notepad++ 风格的干净主窗口，叠加 Catio 的现代质感和 mxterm 的高密度工具审美。
-UI/UX Pro Max 设计系统已落到 `design-system/notra/MASTER.md`，Notra 编辑器页的实际约束以 `design-system/notra/pages/editor.md` 为准。
+TMD 使用 Notepad++ 风格的干净主窗口，叠加 Catio 的现代质感和 mxterm 的高密度工具审美。
+UI/UX Pro Max 设计系统已落到 `design-system/tmd/MASTER.md`，TMD 编辑器页的实际约束以 `design-system/tmd/pages/editor.md` 为准。
 
 ## 布局
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ Notra  新建 打开 保存 保存全部 查找 替换 目录查找      暗色 │
+│ TMD  新建 打开 保存 保存全部 查找 替换 目录查找      暗色 │
 ├─────────────────────────────────────────────────────────────┤
 │ Tab1  Tab2  +                                                 │
 ├─────────────────────────────────────────────────────────────┤

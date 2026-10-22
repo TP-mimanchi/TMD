@@ -1,0 +1,40 @@
+{
+  "name": "tmd-frontend",
+  "private": true,
+  "version": "0.1.8",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 1420",
+    "build": "tsc && vite build",
+    "test:keybindings": "node scripts/verify-keybindings.mjs",
+    "test:markdown": "node scripts/verify-mermaid-layout.mjs",
+    "markdown:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../../scripts/sync-marktext-muya.ps1",
+    "preview": "vite preview --host 127.0.0.1 --port 1420"
+  },
+  "dependencies": {
+    "@muyajs/core": "file:vendor/marktext-muya",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
+    "lucide": "^1.23.0",
+    "marked": "^18.0.5",
+    "mermaid": "^11.16.0",
+    "monaco-editor": "0.53.0",
+    "plantuml-encoder": "^1.4.0",
+    "prismjs": "^1.30.0",
+    "sql-formatter": "^15.8.2",
+    "vega": "^6.2.0",
+    "vega-embed": "^7.1.0",
+    "vega-lite": "^6.4.3"
+  },
+  "devDependencies": {
+    "@types/katex": "^0.16.8",
+    "@types/plantuml-encoder": "^1.4.2",
+    "@types/prismjs": "^1.26.6",
+    "@types/turndown": "^5.0.6",
+    "@types/underscore": "^1.13.0",
+    "@types/webfontloader": "^1.6.38",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
+  }
+}

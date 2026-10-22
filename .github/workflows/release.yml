@@ -50,7 +50,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: crates/notra-app/frontend/package-lock.json
+          cache-dependency-path: crates/tmd-app/frontend/package-lock.json
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -81,7 +81,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install frontend dependencies
-        working-directory: crates/notra-app/frontend
+        working-directory: crates/tmd-app/frontend
         run: npm ci
 
       - name: Validate updater signing key
@@ -103,28 +103,28 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $tauriVersion = (Get-Content "crates/notra-app/tauri.conf.json" -Raw | ConvertFrom-Json).version
-          $frontendVersion = (Get-Content "crates/notra-app/frontend/package.json" -Raw | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content "crates/tmd-app/tauri.conf.json" -Raw | ConvertFrom-Json).version
+          $frontendVersion = (Get-Content "crates/tmd-app/frontend/package.json" -Raw | ConvertFrom-Json).version
           $metadata = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
-          $appPackage = $metadata.packages | Where-Object { $_.name -eq "notra-app" }
-          $corePackage = $metadata.packages | Where-Object { $_.name -eq "notra-core" }
+          $appPackage = $metadata.packages | Where-Object { $_.name -eq "tmd-app" }
+          $corePackage = $metadata.packages | Where-Object { $_.name -eq "tmd-core" }
 
           if (-not $appPackage -or -not $corePackage) {
-            Write-Host "::error::Cargo metadata does not contain notra-app and notra-core"
+            Write-Host "::error::Cargo metadata does not contain tmd-app and tmd-core"
             exit 1
           }
 
           $customProtocol = $appPackage.features.'custom-protocol'
           if (-not $customProtocol -or $customProtocol -notcontains 'tauri/custom-protocol') {
-            Write-Host "::error::notra-app must declare custom-protocol = ['tauri/custom-protocol']"
+            Write-Host "::error::tmd-app must declare custom-protocol = ['tauri/custom-protocol']"
             exit 1
           }
 
           $versions = [ordered]@{
-            "crates/notra-app/tauri.conf.json" = $tauriVersion
-            "crates/notra-app/frontend/package.json" = $frontendVersion
-            "notra-app Cargo package" = $appPackage.version
-            "notra-core Cargo package" = $corePackage.version
+            "crates/tmd-app/tauri.conf.json" = $tauriVersion
+            "crates/tmd-app/frontend/package.json" = $frontendVersion
+            "tmd-app Cargo package" = $appPackage.version
+            "tmd-core Cargo package" = $corePackage.version
           }
 
           $hasError = $false
@@ -151,7 +151,7 @@ jobs:
         run: cargo install tauri-cli --version "^2" --locked
 
       - name: Build platform bundles
-        working-directory: crates/notra-app
+        working-directory: crates/tmd-app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: cargo tauri build ${{ matrix.build_args }} --features custom-protocol
@@ -168,7 +168,7 @@ jobs:
       - name: Upload platform artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: notra-${{ matrix.target }}
+          name: tmd-${{ matrix.target }}
           path: release-assets/*
           if-no-files-found: error
 
@@ -202,17 +202,17 @@ jobs:
             version="${GITHUB_REF_NAME#v}"
             release_tag="${GITHUB_REF_NAME}"
           else
-            version="$(jq -r '.version' crates/notra-app/tauri.conf.json)"
+            version="$(jq -r '.version' crates/tmd-app/tauri.conf.json)"
             release_tag="v${version}"
             echo "Manual validation mode: assets will be prepared for v${version}, but no GitHub Release will be created."
           fi
 
-          prefix="Notra-${version}/"
+          prefix="TMD-${version}/"
           mkdir -p release-assets
           find downloaded-assets -maxdepth 1 -type f -exec cp {} release-assets/ \;
-          git archive --format=zip --prefix="$prefix" -o "release-assets/notra-${version}-source.zip" HEAD
-          git archive --format=tar --prefix="$prefix" HEAD | gzip -9 > "release-assets/notra-${version}-source.tar.gz"
-          node scripts/generate-latest-json.mjs release-assets "syscryer/Notra" "$release_tag" "$version"
+          git archive --format=zip --prefix="$prefix" -o "release-assets/tmd-${version}-source.zip" HEAD
+          git archive --format=tar --prefix="$prefix" HEAD | gzip -9 > "release-assets/tmd-${version}-source.tar.gz"
+          node scripts/generate-latest-json.mjs release-assets "TP-mimanchi/TMD" "$release_tag" "$version"
 
           (
             cd release-assets
@@ -224,7 +224,7 @@ jobs:
       - name: Upload prepared release assets
         uses: actions/upload-artifact@v4
         with:
-          name: notra-release-assets
+          name: tmd-release-assets
           path: release-assets/*
           if-no-files-found: error
 
@@ -240,7 +240,7 @@ jobs:
       - name: Download prepared release assets
         uses: actions/download-artifact@v4
         with:
-          name: notra-release-assets
+          name: tmd-release-assets
           path: release-assets
 
       - name: Create GitHub Release

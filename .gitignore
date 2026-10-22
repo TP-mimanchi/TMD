@@ -1,8 +1,8 @@
 target/
 target-codex-run/
-crates/notra-app/gen/
-crates/notra-app/frontend/dist/
-crates/notra-app/frontend/node_modules/
+crates/tmd-app/gen/
+crates/tmd-app/frontend/dist/
+crates/tmd-app/frontend/node_modules/
 node_modules/
 .reference/
 .learnings/

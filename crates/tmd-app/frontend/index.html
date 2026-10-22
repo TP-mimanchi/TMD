@@ -1,0 +1,1080 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <title>TMD</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background: #e8eef6;
+        overflow: hidden;
+      }
+
+      body.booting #app {
+        visibility: hidden;
+      }
+
+      .boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        color: #334155;
+        background: #e8eef6;
+        font: 600 13px "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+      }
+
+      .boot-card {
+        display: grid;
+        justify-items: center;
+        gap: 12px;
+      }
+
+      .boot-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: block;
+        object-fit: contain;
+      }
+
+      body:not(.booting) .boot-splash {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="booting">
+    <div class="boot-splash" id="bootSplash" aria-hidden="true">
+      <div class="boot-card">
+        <img class="boot-mark" src="/icon.png" alt="" />
+        <div>正在启动 TMD</div>
+      </div>
+    </div>
+    <main id="app">
+      <header class="titlebar" id="windowTitlebar">
+        <section class="brand">
+          <img class="brand-mark" src="/icon.png" alt="" />
+          <strong>TMD</strong>
+        </section>
+        <nav class="app-menu-bar" aria-label="应用菜单">
+          <button class="app-menu-trigger" id="fileMenuButton" data-menu-trigger aria-haspopup="menu" aria-controls="fileMenu" aria-expanded="false">文件</button>
+          <button class="app-menu-trigger" id="editMenuButton" data-menu-trigger aria-haspopup="menu" aria-controls="editMenu" aria-expanded="false">编辑</button>
+          <button class="app-menu-trigger" id="searchMenuButton" data-menu-trigger aria-haspopup="menu" aria-controls="searchMenu" aria-expanded="false">查找</button>
+          <button class="app-menu-trigger" id="viewMenuButton" data-menu-trigger aria-haspopup="menu" aria-controls="viewMenu" aria-expanded="false">视图</button>
+        </nav>
+        <div class="title-drag-zone"></div>
+        <div class="app-update-anchor hidden" id="appUpdateAnchor">
+          <button class="title-button icon-only app-update-button hidden" id="appUpdateButton" aria-label="检查更新" title="检查更新" aria-expanded="false" aria-controls="appUpdatePopover">
+            <span class="icon-slot" data-icon="Download"></span>
+            <span class="app-update-dot" aria-hidden="true"></span>
+          </button>
+          <section class="app-update-popover hidden" id="appUpdatePopover" aria-label="软件更新" role="dialog">
+            <header>
+              <div>
+                <strong id="appUpdatePopoverTitle">发现新版本</strong>
+                <span id="appUpdatePopoverVersion">TMD</span>
+              </div>
+              <button class="app-update-close" id="appUpdateCloseButton" aria-label="关闭更新提示" title="关闭更新提示">
+                <span class="icon-slot" data-icon="X"></span>
+              </button>
+            </header>
+            <p id="appUpdatePopoverDetail">发现新的 TMD 版本</p>
+            <footer>
+              <span id="appUpdatePopoverStatus">可在后台下载，不影响当前工作</span>
+              <button class="settings-action app-update-install" id="appUpdatePopoverInstallButton">
+                <span class="icon-slot" data-icon="Download"></span>
+                <span>下载安装</span>
+              </button>
+            </footer>
+          </section>
+        </div>
+        <section class="title-actions">
+          <button class="title-button" id="themeButton" aria-label="切换主题" title="切换主题">
+            <span class="icon-slot" data-icon="Moon"></span><span data-label>深色</span>
+          </button>
+          <button class="title-button icon-only" id="settingsButton" aria-label="设置" title="设置">
+            <span class="icon-slot" data-icon="Settings"></span>
+          </button>
+          <div class="window-controls" aria-label="窗口控制">
+            <button class="window-button" id="windowMinimize" aria-label="最小化" title="最小化">
+              <span class="icon-slot" data-icon="Minus"></span>
+            </button>
+            <button class="window-button" id="windowMaximize" aria-label="最大化" title="最大化">
+              <span class="icon-slot" data-icon="Maximize2"></span>
+            </button>
+            <button class="window-button danger" id="windowClose" aria-label="关闭" title="关闭">
+              <span class="icon-slot" data-icon="X"></span>
+            </button>
+          </div>
+        </section>
+      </header>
+
+      <nav class="toolbar">
+        <div class="tool-group primary-actions" aria-label="常用工具">
+          <button class="tool-button" id="newButton" aria-label="新建 Ctrl+N" title="新建 Ctrl+N" aria-keyshortcuts="Control+N"><span class="icon-slot" data-icon="FilePlus2"></span><span data-label>新建</span></button>
+          <button class="tool-button" id="openButton" aria-label="打开文件 Ctrl+O" title="打开文件 Ctrl+O" aria-keyshortcuts="Control+O"><span class="icon-slot" data-icon="FolderOpen"></span><span data-label>打开文件</span></button>
+          <button class="tool-button" id="workspaceButton" aria-label="打开工作区" title="打开工作区"><span class="icon-slot" data-icon="FolderTree"></span><span data-label>打开工作区</span></button>
+          <button class="tool-button" id="recentButton" data-menu-trigger aria-label="最近打开" title="最近打开" aria-haspopup="menu"><span class="icon-slot" data-icon="History"></span><span data-label>最近打开</span></button>
+          <span class="tool-divider"></span>
+          <button class="tool-button" id="saveButton" aria-label="保存 Ctrl+S" title="保存 Ctrl+S" aria-keyshortcuts="Control+S"><span class="icon-slot" data-icon="Save"></span><span data-label>保存</span></button>
+          <button class="tool-button" id="saveAllButton" aria-label="保存全部" title="保存全部"><span class="icon-slot" data-icon="SaveAll"></span><span data-label>保存全部</span></button>
+          <button class="tool-button" id="saveAsButton" aria-label="另存为 Ctrl+Shift+S" title="另存为 Ctrl+Shift+S" aria-keyshortcuts="Control+Shift+S"><span class="icon-slot" data-icon="SavePlus"></span><span data-label>另存为</span></button>
+          <span class="tool-divider"></span>
+          <button class="tool-button" id="undoButton" aria-label="撤销" title="撤销"><span class="icon-slot" data-icon="Undo2"></span><span data-label>撤销</span></button>
+          <button class="tool-button" id="redoButton" aria-label="重做" title="重做"><span class="icon-slot" data-icon="Redo2"></span><span data-label>重做</span></button>
+          <button class="tool-button" id="uppercaseButton" aria-label="转为大写" title="转为大写"><span class="icon-slot" data-icon="CaseUpper"></span><span data-label>转为大写</span></button>
+          <button class="tool-button" id="lowercaseButton" aria-label="转为小写" title="转为小写"><span class="icon-slot" data-icon="CaseLower"></span><span data-label>转为小写</span></button>
+          <button class="tool-button" id="formatDocumentButton" aria-label="格式化文档 Shift+Alt+F" title="格式化文档 Shift+Alt+F" aria-keyshortcuts="Shift+Alt+F"><span class="icon-slot" data-icon="Braces"></span><span data-label>格式化文档</span></button>
+          <span class="tool-divider"></span>
+          <button class="tool-button" id="findButton" aria-label="查找 Ctrl+F" title="查找 Ctrl+F" aria-keyshortcuts="Control+F"><span class="icon-slot" data-icon="Search"></span><span data-label>查找</span></button>
+          <button class="tool-button" id="replaceButton" aria-label="替换 Ctrl+H" title="替换 Ctrl+H" aria-keyshortcuts="Control+H"><span class="icon-slot" data-icon="Replace"></span><span data-label>替换</span></button>
+          <button class="tool-button" id="goToLineButton" aria-label="跳转到行 Ctrl+G" title="跳转到行 Ctrl+G" aria-keyshortcuts="Control+G"><span class="icon-slot" data-icon="ListRestart"></span><span data-label>跳转到行</span></button>
+          <button class="tool-button" id="commandButton" aria-label="命令面板 Ctrl+P" title="命令面板 Ctrl+P" aria-keyshortcuts="Control+P"><span class="icon-slot" data-icon="Command"></span><span data-label>命令面板</span></button>
+          <span class="tool-divider"></span>
+          <button class="tool-button" id="wordWrapButton" aria-label="自动换行" title="自动换行" aria-pressed="false"><span class="icon-slot" data-icon="WrapText"></span><span data-label>自动换行</span></button>
+          <div class="markdown-mode-control hidden" id="markdownModeControl" role="group" aria-label="Markdown 编辑模式">
+            <button class="tool-button markdown-mode-button" id="markdownWysiwygButton" data-markdown-mode="wysiwyg" aria-label="Markdown 即时编辑" title="即时编辑"><span class="icon-slot" data-icon="NotebookPen"></span></button>
+            <button class="tool-button markdown-mode-button" id="markdownSplitButton" data-markdown-mode="split" aria-label="Markdown 分屏预览" title="分屏预览"><span class="icon-slot" data-icon="Columns2"></span></button>
+            <button class="tool-button markdown-mode-button" id="markdownSourceButton" data-markdown-mode="source" aria-label="Markdown 源码" title="源码"><span class="icon-slot" data-icon="FileCode2"></span></button>
+          </div>
+        </div>
+        <header class="right-tool-tabs" id="rightToolTabs" aria-label="右侧工具">
+          <button class="right-tool-tab active" id="rightSearchToolButton" data-right-tool="search"><span class="icon-slot" data-icon="Search"></span><span>文件查找</span></button>
+          <button class="right-tool-tab hidden" id="rightOutlineToolButton" data-right-tool="outline"><span class="icon-slot" data-icon="ListTree"></span><span>大纲</span></button>
+          <span class="right-tool-spacer"></span>
+          <button class="right-sidebar-toggle" id="rightSidebarToggleButton" aria-label="打开搜索侧栏" title="打开搜索侧栏"><span class="icon-slot" data-icon="PanelRightOpen"></span></button>
+        </header>
+      </nav>
+
+      <section class="popover app-menu hidden" id="fileMenu" role="menu" aria-label="文件菜单">
+        <div class="menu-list">
+          <button class="menu-row" id="menuNewButton" role="menuitem"><span class="icon-slot" data-icon="FilePlus2"></span><strong>新建</strong><small>Ctrl+N</small></button>
+          <button class="menu-row" id="menuNewMarkdownButton" role="menuitem"><span class="icon-slot" data-icon="NotebookPen"></span><strong>新建 Markdown</strong><small></small></button>
+          <button class="menu-row" id="menuOpenButton" role="menuitem"><span class="icon-slot" data-icon="FolderOpen"></span><strong>打开文件</strong><small>Ctrl+O</small></button>
+          <button class="menu-row" id="menuRecentButton" role="menuitem"><span class="icon-slot" data-icon="History"></span><strong>最近打开</strong><small></small></button>
+          <button class="menu-row" id="menuWorkspaceButton" role="menuitem"><span class="icon-slot" data-icon="FolderTree"></span><strong>打开工作区</strong><small></small></button>
+          <button class="menu-row" id="menuCloseWorkspaceButton" role="menuitem"><span class="icon-slot" data-icon="FolderX"></span><strong>关闭工作区</strong><small></small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="menuSaveButton" role="menuitem"><span class="icon-slot" data-icon="Save"></span><strong>保存</strong><small>Ctrl+S</small></button>
+          <button class="menu-row" id="menuSaveAllButton" role="menuitem"><span class="icon-slot" data-icon="SaveAll"></span><strong>保存全部</strong><small></small></button>
+          <button class="menu-row" id="menuSaveAsButton" role="menuitem"><span class="icon-slot" data-icon="SavePlus"></span><strong>另存为</strong><small>Ctrl+Shift+S</small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="menuCloseButton" role="menuitem"><span class="icon-slot" data-icon="X"></span><strong>关闭当前标签</strong><small>Ctrl+W</small></button>
+        </div>
+      </section>
+
+      <section class="popover app-menu hidden" id="editMenu" role="menu" aria-label="编辑菜单">
+        <div class="menu-list">
+          <button class="menu-row" id="menuUndoButton" role="menuitem"><span class="icon-slot" data-icon="Undo2"></span><strong>撤销</strong><small>Ctrl+Z</small></button>
+          <button class="menu-row" id="menuRedoButton" role="menuitem"><span class="icon-slot" data-icon="Redo2"></span><strong>重做</strong><small>Ctrl+Y</small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="menuUppercaseButton" role="menuitem"><span class="icon-slot" data-icon="CaseUpper"></span><strong>转为大写</strong><small></small></button>
+          <button class="menu-row" id="menuLowercaseButton" role="menuitem"><span class="icon-slot" data-icon="CaseLower"></span><strong>转为小写</strong><small></small></button>
+          <button class="menu-row" id="menuFormatDocumentButton" role="menuitem"><span class="icon-slot" data-icon="Braces"></span><strong>格式化文档</strong><small>Shift+Alt+F</small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="menuSelectAllButton" role="menuitem"><span class="icon-slot" data-icon="Check"></span><strong>全选</strong><small>Ctrl+A</small></button>
+        </div>
+      </section>
+
+      <section class="popover app-menu hidden" id="searchMenu" role="menu" aria-label="查找菜单">
+        <div class="menu-list">
+          <button class="menu-row" id="menuFindButton" role="menuitem"><span class="icon-slot" data-icon="Search"></span><strong>查找</strong><small>Ctrl+F</small></button>
+          <button class="menu-row" id="menuReplaceButton" role="menuitem"><span class="icon-slot" data-icon="Replace"></span><strong>替换</strong><small>Ctrl+H</small></button>
+          <button class="menu-row" id="menuFindWorkspaceButton" role="menuitem"><span class="icon-slot" data-icon="Files"></span><strong>在文件中查找</strong><small>Ctrl+Shift+F</small></button>
+          <button class="menu-row" id="menuReplaceWorkspaceButton" role="menuitem"><span class="icon-slot" data-icon="ReplaceAll"></span><strong>在文件中替换</strong><small>Ctrl+Shift+H</small></button>
+          <button class="menu-row" id="menuGoToLineButton" role="menuitem"><span class="icon-slot" data-icon="ListRestart"></span><strong>跳转到行</strong><small>Ctrl+G</small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="menuCommandButton" role="menuitem"><span class="icon-slot" data-icon="Command"></span><strong>命令面板</strong><small>Ctrl+P</small></button>
+        </div>
+      </section>
+
+      <section class="popover app-menu hidden" id="viewMenu" role="menu" aria-label="视图菜单">
+        <div class="menu-list">
+          <button class="menu-row" id="menuWordWrapButton" role="menuitem"><span class="icon-slot" data-icon="WrapText"></span><strong>自动换行</strong><small></small></button>
+          <button class="menu-row" id="menuMarkdownWysiwygButton" role="menuitemradio"><span class="icon-slot" data-icon="NotebookPen"></span><strong>Markdown 即时编辑</strong><small></small></button>
+          <button class="menu-row" id="menuMarkdownSplitButton" role="menuitemradio"><span class="icon-slot" data-icon="Columns2"></span><strong>Markdown 分屏预览</strong><small></small></button>
+          <button class="menu-row" id="menuMarkdownSourceButton" role="menuitemradio"><span class="icon-slot" data-icon="FileCode2"></span><strong>Markdown 源码</strong><small></small></button>
+          <button class="menu-row" id="menuOutlineButton" role="menuitem"><span class="icon-slot" data-icon="ListTree"></span><strong>Markdown 大纲</strong><small>Ctrl+Shift+O</small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="menuThemeButton" role="menuitem"><span class="icon-slot" data-icon="Moon"></span><strong>切换主题</strong><small></small></button>
+        </div>
+      </section>
+
+      <section class="tabs" id="tabsBar">
+        <div class="tabs-list" id="tabs" role="tablist" aria-label="打开的文档"></div>
+        <div class="tab-scroll-controls hidden" id="tabScrollControls" role="group" aria-label="标签滚动">
+          <button class="tab-scroll-button" id="tabScrollLeftButton" type="button" aria-label="向左滚动标签" title="向左滚动标签">
+            <span class="icon-slot" data-icon="ChevronLeft"></span>
+          </button>
+          <button class="tab-scroll-button" id="tabScrollRightButton" type="button" aria-label="向右滚动标签" title="向右滚动标签">
+            <span class="icon-slot" data-icon="ChevronRight"></span>
+          </button>
+          <button class="tab-scroll-button" id="tabOverflowButton" type="button" data-menu-trigger aria-label="显示不可见标签" title="显示不可见标签" aria-haspopup="menu" aria-controls="tabOverflowMenu" aria-expanded="false">
+            <span class="icon-slot" data-icon="ChevronDown"></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="popover tab-overflow-menu hidden" id="tabOverflowMenu" role="menu" aria-label="不可见标签">
+        <div class="tab-overflow-list" id="tabOverflowList"></div>
+      </section>
+
+      <section class="workspace" id="workspace">
+        <aside class="activity-rail" id="activityRail">
+          <button class="rail-button active" id="directoryToggle" aria-label="目录" title="目录">
+            <span class="icon-slot" data-icon="FolderTree"></span>
+          </button>
+          <button class="rail-button" id="findRailButton" aria-label="在文件中查找 Ctrl+Shift+F" title="在文件中查找 Ctrl+Shift+F" aria-keyshortcuts="Control+Shift+F">
+            <span class="icon-slot" data-icon="Search"></span>
+          </button>
+          <div class="rail-spacer"></div>
+        </aside>
+
+        <aside class="explorer" id="explorer">
+          <header class="explorer-head">
+            <strong id="workspaceTitle">工作目录</strong>
+            <div class="explorer-actions">
+              <button class="ghost-button icon-only" id="refreshDirectoryButton" aria-label="刷新目录" title="刷新目录"><span class="icon-slot" data-icon="RefreshCw"></span><span data-label>刷新目录</span></button>
+              <button class="ghost-button icon-only" id="closeDirectoryButton" aria-label="收起目录" title="收起目录"><span class="icon-slot" data-icon="PanelLeftClose"></span><span data-label>收起目录</span></button>
+              <button class="ghost-button icon-only" id="closeWorkspaceButton" aria-label="关闭工作区" title="关闭工作区"><span class="icon-slot" data-icon="FolderX"></span></button>
+            </div>
+          </header>
+          <div class="explorer-body" id="tree"></div>
+        </aside>
+
+        <div class="explorer-resize" id="explorerResize" role="separator" aria-orientation="vertical" aria-label="调整目录宽度" aria-valuemin="180" aria-valuemax="640" aria-valuenow="272" tabindex="0"></div>
+
+        <section class="editor-area" id="editorArea">
+          <div class="editor-wrap">
+            <div class="current-find-dock hidden" id="currentFindDock">
+              <div class="current-find-bar">
+                <div class="current-find-query">
+                  <input id="currentFindInput" autocomplete="off" aria-label="查找目标" aria-controls="currentFindHistoryMenu" aria-expanded="false" placeholder="查找" />
+                  <button class="current-find-history-toggle" id="currentFindHistoryButton" type="button" aria-label="搜索历史" aria-controls="currentFindHistoryMenu" aria-expanded="false" title="搜索历史">
+                    <span class="icon-slot" data-icon="ChevronDown"></span>
+                  </button>
+                </div>
+                <input class="hidden" id="currentReplaceInput" autocomplete="off" aria-label="替换为" placeholder="替换为" />
+                <div class="current-find-options">
+                  <label title="匹配大小写"><input type="checkbox" id="currentMatchCaseInput" /><span>Aa</span></label>
+                  <label title="全词匹配"><input type="checkbox" id="currentWholeWordInput" /><span>W</span></label>
+                  <label title="正则表达式"><input type="checkbox" id="currentRegexInput" /><span>.*</span></label>
+                </div>
+                <span class="current-find-count" id="currentFindCount">0 个结果</span>
+                <div class="current-find-actions">
+                  <button id="currentFindPreviousButton" aria-label="查找上一个" title="查找上一个"><span class="icon-slot" data-icon="ArrowUp"></span></button>
+                  <button id="currentFindNextButton" aria-label="查找下一个" title="查找下一个"><span class="icon-slot" data-icon="ArrowDown"></span></button>
+                  <button id="currentFindAllButton" aria-label="查找全部" title="查找全部"><span class="icon-slot" data-icon="FileSearch"></span></button>
+                  <button class="hidden" id="currentReplaceButton" aria-label="替换当前" title="替换当前"><span class="icon-slot" data-icon="Replace"></span></button>
+                  <button class="hidden" id="currentReplaceAllButton" aria-label="全部替换" title="全部替换"><span class="icon-slot" data-icon="ReplaceAll"></span></button>
+                  <button id="closeCurrentFindButton" aria-label="关闭当前文件查找" title="关闭当前文件查找"><span class="icon-slot" data-icon="X"></span></button>
+                </div>
+              </div>
+              <div class="current-find-history-menu hidden" id="currentFindHistoryMenu" role="listbox" aria-label="搜索历史"></div>
+            </div>
+            <div id="editor"></div>
+            <div id="markdownWysiwyg" class="markdown-wysiwyg" aria-label="Markdown 即时编辑器" aria-hidden="true"></div>
+          </div>
+          <div class="markdown-preview-resize hidden" id="markdownPreviewResize" role="separator" aria-label="调整 Markdown 预览宽度" aria-orientation="vertical" aria-valuemin="280" tabindex="0" title="拖动调整预览宽度，双击恢复默认"></div>
+          <aside class="markdown-preview hidden" id="markdownPreview"></aside>
+        </section>
+      </section>
+
+      <section class="popover hidden" id="languageMenu">
+        <header class="popover-head">
+          <strong>语言</strong>
+          <span>选择当前文档语法</span>
+        </header>
+        <div class="menu-search">
+          <input id="languageSearchInput" placeholder="筛选语言或扩展名" />
+        </div>
+        <div class="menu-list" id="languageList"></div>
+      </section>
+
+      <section class="popover hidden" id="recentMenu">
+        <header class="popover-head">
+          <strong>最近打开</strong>
+          <button class="ghost-button" id="clearRecentButton">清空</button>
+        </header>
+        <div class="menu-list" id="recentList"></div>
+      </section>
+
+      <section class="popover hidden" id="encodingMenu">
+        <header class="popover-head">
+          <strong>编码</strong>
+          <span id="encodingNotice">当前使用 UTF-8</span>
+        </header>
+        <div class="menu-section-title">使用编码重新解释</div>
+        <div class="menu-list" id="useEncodingList"></div>
+        <div class="menu-section-title">转换并保存为</div>
+        <div class="menu-list" id="convertEncodingList"></div>
+      </section>
+
+      <section class="popover hidden" id="lineEndingMenu">
+        <header class="popover-head">
+          <strong>行尾</strong>
+          <span>转换当前文档行尾</span>
+        </header>
+        <div class="menu-list" id="lineEndingList"></div>
+      </section>
+
+      <section class="settings-page hidden" id="settingsPage" aria-label="设置">
+        <aside class="settings-sidebar">
+          <header class="settings-sidebar-head">
+            <strong>设置</strong>
+            <button class="settings-close" id="settingsCloseButton" aria-label="关闭设置" title="关闭设置">
+              <span class="icon-slot" data-icon="X"></span>
+            </button>
+          </header>
+          <nav class="settings-nav" aria-label="设置分类">
+            <button class="settings-nav-item active" data-settings-section="appearance">
+              <span class="icon-slot" data-icon="Sun"></span>
+              <strong>外观</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-section="editor">
+              <span class="icon-slot" data-icon="Type"></span>
+              <strong>编辑器</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-section="keybindings">
+              <span class="icon-slot" data-icon="Command"></span>
+              <strong>快捷键</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-section="workspace">
+              <span class="icon-slot" data-icon="FolderTree"></span>
+              <strong>工作区</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-section="system">
+              <span class="icon-slot" data-icon="MonitorCog"></span>
+              <strong>系统集成</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-section="search">
+              <span class="icon-slot" data-icon="Search"></span>
+              <strong>查找</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-section="about">
+              <span class="icon-slot" data-icon="Info"></span>
+              <strong>关于</strong>
+            </button>
+          </nav>
+          <footer class="settings-product">
+            <img class="settings-product-mark" src="/icon.png" alt="" />
+            <div>
+              <strong>TMD</strong>
+              <span id="settingsProductVersion">v—</span>
+            </div>
+          </footer>
+        </aside>
+
+        <section class="settings-content">
+          <section class="settings-panel active" data-settings-panel="appearance">
+            <header class="settings-section-head">
+              <strong>主题</strong>
+              <span>浅色优先，深色作为快速切换</span>
+            </header>
+            <div class="theme-grid">
+              <button class="theme-card" id="settingsThemeLight">
+                <span class="theme-swatches">
+                  <i></i><i></i><i></i>
+                </span>
+                <strong>晨光</strong>
+                <span>Light · 明亮清爽</span>
+                <em>当前</em>
+              </button>
+              <button class="theme-card" id="settingsThemeDark">
+                <span class="theme-swatches dark-swatch">
+                  <i></i><i></i><i></i>
+                </span>
+                <strong>夜航</strong>
+                <span>Dark · 低亮编辑</span>
+                <em>当前</em>
+              </button>
+            </div>
+
+            <header class="settings-section-head compact">
+              <strong>字体与显示</strong>
+              <span>分别控制应用壳和编辑区的阅读手感</span>
+            </header>
+            <div class="settings-list">
+              <div class="settings-row font-row">
+                <span class="settings-row-icon icon-slot" data-icon="Type"></span>
+                <div>
+                  <strong>界面字体</strong>
+                  <span>标题栏、侧栏、按钮和设置页</span>
+                </div>
+                <div class="font-control" data-font-target="shell">
+                  <div class="font-dropdown">
+                    <button class="font-select-trigger" id="settingsShellFontModeButton" type="button" data-font-dropdown-trigger="settingsShellFontModeMenu" aria-haspopup="menu" aria-expanded="false">
+                      <span id="settingsShellFontModeLabel">预设字体</span>
+                      <span class="icon-slot font-select-chevron" data-icon="ChevronDown"></span>
+                    </button>
+                    <div class="font-dropdown-menu hidden" id="settingsShellFontModeMenu" role="menu">
+                      <button type="button" data-value="preset" role="menuitem"><span>预设字体</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="custom" role="menuitem"><span>手动输入</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                    </div>
+                  </div>
+                  <div class="font-dropdown" id="settingsShellFontPresetWrap">
+                    <button class="font-select-trigger" id="settingsShellFontPresetButton" type="button" data-font-dropdown-trigger="settingsShellFontPresetMenu" aria-haspopup="menu" aria-expanded="false">
+                      <span id="settingsShellFontPresetLabel">系统默认</span>
+                      <span class="icon-slot font-select-chevron" data-icon="ChevronDown"></span>
+                    </button>
+                    <div class="font-dropdown-menu hidden" id="settingsShellFontPresetMenu" role="menu">
+                      <button type="button" data-value="system" role="menuitem"><span>系统默认</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="segoe" role="menuitem"><span>Segoe UI Variable</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="yahei" role="menuitem"><span>微软雅黑</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="dengxian" role="menuitem"><span>等线</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="sourceHanSans" role="menuitem"><span>思源黑体</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="misans" role="menuitem"><span>MiSans</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                    </div>
+                  </div>
+                  <input class="font-input" id="settingsShellFontCustom" aria-label="自定义界面字体" spellcheck="false" placeholder='自定义，例如 "MiSans", "Microsoft YaHei UI", sans-serif' />
+                </div>
+              </div>
+              <div class="settings-row font-row">
+                <span class="settings-row-icon icon-slot" data-icon="Braces"></span>
+                <div>
+                  <strong>编辑器字体</strong>
+                  <span>Monaco 文本区和代码提示</span>
+                </div>
+                <div class="font-control" data-font-target="editor">
+                  <div class="font-dropdown">
+                    <button class="font-select-trigger" id="settingsEditorFontModeButton" type="button" data-font-dropdown-trigger="settingsEditorFontModeMenu" aria-haspopup="menu" aria-expanded="false">
+                      <span id="settingsEditorFontModeLabel">预设字体</span>
+                      <span class="icon-slot font-select-chevron" data-icon="ChevronDown"></span>
+                    </button>
+                    <div class="font-dropdown-menu hidden" id="settingsEditorFontModeMenu" role="menu">
+                      <button type="button" data-value="preset" role="menuitem"><span>预设字体</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="custom" role="menuitem"><span>手动输入</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                    </div>
+                  </div>
+                  <div class="font-dropdown" id="settingsEditorFontPresetWrap">
+                    <button class="font-select-trigger" id="settingsEditorFontPresetButton" type="button" data-font-dropdown-trigger="settingsEditorFontPresetMenu" aria-haspopup="menu" aria-expanded="false">
+                      <span id="settingsEditorFontPresetLabel">Cascadia</span>
+                      <span class="icon-slot font-select-chevron" data-icon="ChevronDown"></span>
+                    </button>
+                    <div class="font-dropdown-menu hidden" id="settingsEditorFontPresetMenu" role="menu">
+                      <button type="button" data-value="cascadia" role="menuitem"><span>Cascadia</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="jetbrains" role="menuitem"><span>JetBrains</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="consolas" role="menuitem"><span>Consolas</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="firaCode" role="menuitem"><span>Fira Code</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                      <button type="button" data-value="sourceCodePro" role="menuitem"><span>Source Code Pro</span><span class="icon-slot font-option-check" data-icon="Check"></span></button>
+                    </div>
+                  </div>
+                  <input class="font-input" id="settingsEditorFontCustom" aria-label="自定义编辑器字体" spellcheck="false" placeholder='自定义，例如 "JetBrains Mono", "Cascadia Code", Consolas, monospace' />
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Type"></span>
+                <div>
+                  <strong>界面字号</strong>
+                  <span>应用壳主要文字大小</span>
+                </div>
+                <div class="stepper">
+                  <button id="settingsShellFontMinus" aria-label="缩小界面字号" title="缩小界面字号"><span class="icon-slot" data-icon="Minus"></span></button>
+                  <strong id="settingsShellFontValue">14 px</strong>
+                  <button id="settingsShellFontPlus" aria-label="放大界面字号" title="放大界面字号"><span class="icon-slot" data-icon="ZoomIn"></span></button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Type"></span>
+                <div>
+                  <strong>编辑器字号</strong>
+                  <span>Monaco 编辑区文字大小</span>
+                </div>
+                <div class="stepper">
+                  <button id="settingsFontMinus" aria-label="缩小字号" title="缩小字号"><span class="icon-slot" data-icon="Minus"></span></button>
+                  <strong id="settingsFontValue">14 px</strong>
+                  <button id="settingsFontPlus" aria-label="放大字号" title="放大字号"><span class="icon-slot" data-icon="ZoomIn"></span></button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="ListRestart"></span>
+                <div>
+                  <strong>视图状态</strong>
+                  <span>恢复默认显示设置</span>
+                </div>
+                <button class="settings-action" id="settingsResetViewButton">重置</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="editor">
+            <header class="settings-section-head">
+              <strong>编辑器</strong>
+              <span>控制文本显示和辅助信息</span>
+            </header>
+            <div class="settings-list">
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="WrapText"></span>
+                <div>
+                  <strong>自动换行</strong>
+                  <span>长行在视口内折行</span>
+                </div>
+                <div class="seg-control" id="settingsWordWrapControl">
+                  <button data-value="off">关闭</button>
+                  <button data-value="on">开启</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Map"></span>
+                <div>
+                  <strong>缩略图</strong>
+                  <span>右侧代码地图</span>
+                </div>
+                <div class="seg-control" id="settingsMinimapControl">
+                  <button data-value="off">关闭</button>
+                  <button data-value="on">开启</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="MousePointerClick"></span>
+                <div>
+                  <strong>光标平滑移动</strong>
+                  <span>点击或键盘定位时平滑移动文本光标</span>
+                </div>
+                <div class="seg-control" id="settingsCaretAnimationControl">
+                  <button data-value="off">关闭</button>
+                  <button data-value="on">开启</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Pilcrow"></span>
+                <div>
+                  <strong>空白符</strong>
+                  <span>显示空格、制表符和换行</span>
+                </div>
+                <div class="seg-control wide" id="settingsWhitespaceControl">
+                  <button data-value="none">关闭</button>
+                  <button data-value="selection">选区</button>
+                  <button data-value="all">全部</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Columns2"></span>
+                <div>
+                  <strong>Markdown 页面宽度</strong>
+                  <span>即时编辑和预览使用相同的内容宽度</span>
+                </div>
+                <div class="seg-control wide markdown-width-control" id="settingsMarkdownWidthControl">
+                  <button data-value="typora">Typora</button>
+                  <button data-value="compact">紧凑</button>
+                  <button data-value="wide">宽屏</button>
+                  <button data-value="full">全宽</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="keybindings">
+            <header class="settings-section-head">
+              <strong>键盘快捷方式</strong>
+              <span>选择熟悉的键位，也可以单独覆盖任意命令</span>
+            </header>
+            <div class="settings-list keymap-profile-list">
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Command"></span>
+                <div>
+                  <strong>键位方案</strong>
+                  <span id="keymapProfileDetail">工作区和单文件统一使用 VS Code 键位</span>
+                </div>
+                <div class="seg-control wide keymap-profile-control" id="settingsKeymapProfileControl">
+                  <button data-value="vscode">VS Code</button>
+                  <button data-value="notepad-plus-plus">Notepad++</button>
+                  <button data-value="adaptive">跟随模式</button>
+                </div>
+              </div>
+            </div>
+
+            <header class="settings-section-head compact keybinding-section-head">
+              <strong>命令</strong>
+              <span>点击按键可重新录入；Delete 清空，Esc 取消</span>
+            </header>
+            <div class="keybinding-toolbar">
+              <label class="keybinding-search">
+                <span class="icon-slot" data-icon="Search"></span>
+                <input id="keybindingSearchInput" type="search" placeholder="搜索命令、分类或按键" autocomplete="off" />
+              </label>
+              <button class="settings-action" id="toggleKeybindingGroupsButton"><span class="icon-slot" data-icon="ListTree"></span><span data-label>全部收起</span></button>
+              <button class="settings-action" id="importKeybindingsButton"><span class="icon-slot" data-icon="ClipboardPaste"></span><span>导入</span></button>
+              <button class="settings-action" id="exportKeybindingsButton"><span class="icon-slot" data-icon="ClipboardCopy"></span><span>导出</span></button>
+              <button class="settings-action" id="resetAllKeybindingsButton"><span class="icon-slot" data-icon="Undo2"></span><span>全部恢复默认</span></button>
+            </div>
+            <div class="keybinding-list" id="keybindingList" role="list"></div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="workspace">
+            <header class="settings-section-head">
+              <strong>工作区</strong>
+              <span>切换 TMD 的主要工作形态</span>
+            </header>
+            <div class="settings-list">
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="File"></span>
+                <div>
+                  <strong>文件模式</strong>
+                  <span>单文件或目录浏览</span>
+                </div>
+                <div class="seg-control wide" id="settingsModeControl">
+                  <button data-value="single">单文件</button>
+                  <button data-value="workspace">文件夹</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="FileText"></span>
+                <div>
+                  <strong>Markdown 编辑模式</strong>
+                  <span>Markdown 文档默认即时编辑，也可切换分屏或源码</span>
+                </div>
+                <div class="seg-control wide markdown-settings-control" id="settingsMarkdownControl">
+                  <button data-value="wysiwyg">即时编辑</button>
+                  <button data-value="split">分屏</button>
+                  <button data-value="source">源码</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Command"></span>
+                <div>
+                  <strong>命令面板</strong>
+                  <span>打开命令和快速跳转</span>
+                </div>
+                <button class="settings-action" id="settingsCommandButton">打开</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="system">
+            <header class="settings-section-head">
+              <strong>系统集成</strong>
+              <span>由你决定 TMD 如何出现在 Windows 资源管理器中</span>
+            </header>
+            <div class="settings-list">
+              <div class="settings-row shell-integration-row">
+                <span class="settings-row-icon icon-slot" data-icon="MousePointerClick"></span>
+                <div>
+                  <strong>文件右键菜单</strong>
+                  <span id="settingsShellIntegrationDetail">检测“以 TMD 打开”状态</span>
+                </div>
+                <div class="shell-integration-control">
+                  <span class="settings-status-pill" id="settingsShellIntegrationStatus" aria-live="polite">检测中</span>
+                  <button class="settings-action" id="settingsShellIntegrationButton" aria-pressed="false">开启</button>
+                </div>
+              </div>
+              <div class="settings-row shell-integration-row">
+                <span class="settings-row-icon icon-slot" data-icon="ListChecks"></span>
+                <div>
+                  <strong>默认应用候选</strong>
+                  <span id="settingsDefaultAppDetail">检测 Windows 默认应用候选状态</span>
+                </div>
+                <div class="shell-integration-control">
+                  <span class="settings-status-pill" id="settingsDefaultAppStatus" aria-live="polite">检测中</span>
+                  <button class="settings-action" id="settingsDefaultAppButton" aria-pressed="false">开启</button>
+                </div>
+              </div>
+              <div class="settings-row static">
+                <span class="settings-row-icon icon-slot" data-icon="ShieldCheck"></span>
+                <div>
+                  <strong>安装时保持不变</strong>
+                  <span>安装和升级不会自动关联扩展名，也不会修改已有默认应用</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="search">
+            <header class="settings-section-head">
+              <strong>查找</strong>
+              <span>当前文件和工作区的查找与替换</span>
+            </header>
+            <div class="settings-list">
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Search"></span>
+                <div>
+                  <strong>搜索侧栏</strong>
+                  <span>在右侧查看匹配预览并快速跳转</span>
+                </div>
+                <button class="settings-action" id="settingsOpenFindButton">打开</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-settings-panel="about">
+            <header class="settings-section-head">
+              <strong>关于</strong>
+              <span>当前应用和编辑内核</span>
+            </header>
+            <div class="about-block">
+              <img class="about-mark" src="/icon.png" alt="" />
+              <div>
+                <strong>TMD</strong>
+                <span>Tauri + Monaco + Muya editor</span>
+              </div>
+            </div>
+            <div class="settings-list">
+              <div class="settings-row static">
+                <span class="settings-row-icon icon-slot" data-icon="FileText"></span>
+                <div>
+                  <strong>版本</strong>
+                  <span id="settingsAppVersion">—</span>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="RefreshCw"></span>
+                <div>
+                  <strong>软件更新</strong>
+                  <span id="settingsUpdateDetail">正在读取当前版本</span>
+                </div>
+                <div class="shell-integration-control settings-update-control">
+                  <span class="settings-status-pill" id="settingsUpdateStatus" aria-live="polite">准备中</span>
+                  <button class="settings-action" id="settingsCheckUpdateButton">检查更新</button>
+                  <button class="settings-action hidden" id="settingsInstallUpdateButton">下载安装</button>
+                </div>
+              </div>
+              <div class="settings-row static">
+                <span class="settings-row-icon icon-slot" data-icon="Braces"></span>
+                <div>
+                  <strong>语法高亮</strong>
+                  <span>Monaco basic languages</span>
+                </div>
+              </div>
+              <div class="settings-row static">
+                <span class="settings-row-icon icon-slot" data-icon="NotebookPen"></span>
+                <div>
+                  <strong>Markdown 内核</strong>
+                  <span>MarkText v0.20.0-rc.1 · Muya 0.2.0 源码</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section class="popover tab-menu hidden" id="tabMenu" role="menu" aria-label="标签菜单">
+        <div class="menu-list">
+          <button class="menu-row" id="tabSaveButton" role="menuitem"><span class="icon-slot" data-icon="Save"></span><strong>保存</strong><small>Ctrl+S</small></button>
+          <button class="menu-row" id="tabSaveAsButton" role="menuitem"><span class="icon-slot" data-icon="SavePlus"></span><strong>另存为</strong><small></small></button>
+          <button class="menu-row" id="tabRenameButton" role="menuitem"><span class="icon-slot" data-icon="Edit3"></span><strong>重命名</strong><small></small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="tabCopyPathButton" role="menuitem"><span class="icon-slot" data-icon="Copy"></span><strong>复制路径</strong><small></small></button>
+          <button class="menu-row" id="tabRevealButton" role="menuitem"><span class="icon-slot" data-icon="ExternalLink"></span><strong>在资源管理器中显示</strong><small></small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="tabCloseButton" role="menuitem"><span class="icon-slot" data-icon="X"></span><strong>关闭</strong><small>Ctrl+W</small></button>
+          <button class="menu-row" id="tabCloseOthersButton" role="menuitem"><span class="icon-slot" data-icon="Files"></span><strong>关闭其他</strong><small></small></button>
+          <button class="menu-row" id="tabCloseRightButton" role="menuitem"><span class="icon-slot" data-icon="PanelLeftClose"></span><strong>关闭右侧</strong><small></small></button>
+          <button class="menu-row" id="tabCloseSavedButton" role="menuitem"><span class="icon-slot" data-icon="SaveAll"></span><strong>关闭已保存</strong><small></small></button>
+        </div>
+      </section>
+
+      <section class="popover tree-menu hidden" id="treeMenu" role="menu" aria-label="文件树菜单">
+        <div class="menu-list">
+          <button class="menu-row" id="treeOpenButton" role="menuitem"><span class="icon-slot" data-icon="FileText"></span><strong>打开</strong><small></small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="treeNewFileButton" role="menuitem"><span class="icon-slot" data-icon="FilePlus2"></span><strong>新建文件</strong><small></small></button>
+          <button class="menu-row" id="treeNewFolderButton" role="menuitem"><span class="icon-slot" data-icon="FolderPlus"></span><strong>新建文件夹</strong><small></small></button>
+          <button class="menu-row" id="treeRenameButton" role="menuitem"><span class="icon-slot" data-icon="Edit3"></span><strong>重命名</strong><small>F2</small></button>
+          <button class="menu-row danger" id="treeDeleteButton" role="menuitem"><span class="icon-slot" data-icon="Trash2"></span><strong>删除</strong><small>Del</small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="treeCopyPathButton" role="menuitem"><span class="icon-slot" data-icon="Copy"></span><strong>复制路径</strong><small></small></button>
+          <button class="menu-row" id="treeRevealButton" role="menuitem"><span class="icon-slot" data-icon="ExternalLink"></span><strong>在资源管理器中显示</strong><small></small></button>
+          <button class="menu-row" id="treeRefreshButton" role="menuitem"><span class="icon-slot" data-icon="RefreshCw"></span><strong>刷新目录</strong><small></small></button>
+        </div>
+      </section>
+
+      <section class="popover markdown-context-menu hidden" id="markdownContextMenu" role="menu" aria-label="Markdown 编辑菜单">
+        <div class="markdown-context-action-grid" role="group" aria-label="剪贴板操作">
+          <button class="markdown-context-control" type="button" data-markdown-action="cut" data-needs-selection data-needs-edit aria-label="剪切" title="剪切 Ctrl+X"><span class="icon-slot" data-icon="Scissors"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="copy" data-needs-selection aria-label="复制" title="复制 Ctrl+C"><span class="icon-slot" data-icon="Copy"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="paste" data-needs-edit aria-label="粘贴" title="粘贴 Ctrl+V"><span class="icon-slot" data-icon="ClipboardPaste"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="delete" data-needs-selection data-needs-edit aria-label="删除所选内容" title="删除所选内容"><span class="icon-slot" data-icon="Trash2"></span></button>
+        </div>
+
+        <div class="markdown-context-submenu-host">
+          <button class="menu-row markdown-context-parent" id="markdownCopyPasteMenuButton" type="button" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-markdown-submenu="markdownCopyPasteMenu">
+            <span class="icon-slot" data-icon="ClipboardCopy"></span><strong>复制 / 粘贴为</strong><small class="icon-slot submenu-chevron" data-icon="ChevronRight"></small>
+          </button>
+          <div class="markdown-context-submenu hidden" id="markdownCopyPasteMenu" role="menu" aria-label="复制和粘贴格式">
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="copy-markdown" data-needs-selection><span class="icon-slot" data-icon="FileText"></span><strong>复制为 Markdown</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="copy-html" data-needs-selection><span class="icon-slot" data-icon="Code2"></span><strong>复制为 HTML</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="copy-rich" data-needs-selection><span class="icon-slot" data-icon="ClipboardCopy"></span><strong>复制为富文本</strong><small></small></button>
+            <div class="menu-divider"></div>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paste-plain" data-needs-edit><span class="icon-slot" data-icon="ClipboardPaste"></span><strong>粘贴为纯文本</strong><small>Ctrl+Shift+V</small></button>
+          </div>
+        </div>
+
+        <div class="menu-divider"></div>
+        <div class="markdown-context-action-grid markdown-format-grid" role="group" aria-label="Markdown 格式">
+          <button class="markdown-context-control" type="button" data-markdown-action="format:strong" data-needs-edit aria-label="粗体" title="粗体 Ctrl+B"><span class="icon-slot" data-icon="Bold"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="format:em" data-needs-edit aria-label="斜体" title="斜体 Ctrl+I"><span class="icon-slot" data-icon="Italic"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="format:inline_code" data-needs-edit aria-label="行内代码" title="行内代码 Ctrl+`"><span class="icon-slot" data-icon="Code2"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="format:link" data-needs-edit aria-label="链接" title="链接 Ctrl+L"><span class="icon-slot" data-icon="Link2"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="paragraph:blockquote" data-needs-edit aria-label="引用" title="引用"><span class="icon-slot" data-icon="Quote"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="paragraph:ol-order" data-needs-edit aria-label="有序列表" title="有序列表"><span class="icon-slot" data-icon="ListOrdered"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="paragraph:ul-bullet" data-needs-edit aria-label="无序列表" title="无序列表"><span class="icon-slot" data-icon="List"></span></button>
+          <button class="markdown-context-control" type="button" data-markdown-action="paragraph:ul-task" data-needs-edit aria-label="任务列表" title="任务列表"><span class="icon-slot" data-icon="ListChecks"></span></button>
+        </div>
+
+        <div class="menu-divider"></div>
+        <div class="markdown-context-submenu-host">
+          <button class="menu-row markdown-context-parent" id="markdownParagraphMenuButton" type="button" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-markdown-submenu="markdownParagraphMenu" data-needs-edit>
+            <span class="icon-slot" data-icon="Pilcrow"></span><strong>段落</strong><small class="icon-slot submenu-chevron" data-icon="ChevronRight"></small>
+          </button>
+          <div class="markdown-context-submenu markdown-paragraph-submenu hidden" id="markdownParagraphMenu" role="menu" aria-label="段落格式">
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:heading 1" data-needs-edit><span class="icon-slot" data-icon="Heading1"></span><strong>一级标题</strong><small>Ctrl+1</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:heading 2" data-needs-edit><span class="icon-slot" data-icon="Heading2"></span><strong>二级标题</strong><small>Ctrl+2</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:heading 3" data-needs-edit><span class="icon-slot" data-icon="Heading3"></span><strong>三级标题</strong><small>Ctrl+3</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:heading 4" data-needs-edit><span class="icon-slot" data-icon="Heading4"></span><strong>四级标题</strong><small>Ctrl+4</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:heading 5" data-needs-edit><span class="icon-slot" data-icon="Heading5"></span><strong>五级标题</strong><small>Ctrl+5</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:heading 6" data-needs-edit><span class="icon-slot" data-icon="Heading6"></span><strong>六级标题</strong><small>Ctrl+6</small></button>
+            <div class="menu-divider"></div>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:paragraph" data-needs-edit><span class="icon-slot" data-icon="Pilcrow"></span><strong>正文</strong><small>Ctrl+0</small></button>
+          </div>
+        </div>
+
+        <div class="markdown-context-submenu-host">
+          <button class="menu-row markdown-context-parent" id="markdownInsertMenuButton" type="button" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-markdown-submenu="markdownInsertMenu" data-needs-edit>
+            <span class="icon-slot" data-icon="FilePlus2"></span><strong>插入</strong><small class="icon-slot submenu-chevron" data-icon="ChevronRight"></small>
+          </button>
+          <div class="markdown-context-submenu markdown-insert-submenu hidden" id="markdownInsertMenu" role="menu" aria-label="插入 Markdown 内容">
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="insert:image" data-needs-edit><span class="icon-slot" data-icon="Image"></span><strong>图片</strong><small>Ctrl+Shift+I</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:hr" data-needs-edit><span class="icon-slot" data-icon="SeparatorHorizontal"></span><strong>水平分割线</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="insert:table" data-needs-edit><span class="icon-slot" data-icon="Table2"></span><strong>表格</strong><small>Ctrl+Shift+T</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:pre" data-needs-edit><span class="icon-slot" data-icon="FileCode2"></span><strong>代码块</strong><small>Ctrl+Shift+K</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:mathblock" data-needs-edit><span class="icon-slot" data-icon="Sigma"></span><strong>公式块</strong><small>Ctrl+Shift+M</small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:html" data-needs-edit><span class="icon-slot" data-icon="Code2"></span><strong>HTML 块</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="paragraph:front-matter" data-needs-edit><span class="icon-slot" data-icon="Braces"></span><strong>YAML Front Matter</strong><small></small></button>
+            <div class="menu-divider"></div>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="insert:before" data-needs-edit><span class="icon-slot" data-icon="BetweenVerticalStart"></span><strong>在上方插入段落</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="insert:after" data-needs-edit><span class="icon-slot" data-icon="BetweenVerticalEnd"></span><strong>在下方插入段落</strong><small></small></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="popover markdown-context-menu markdown-image-context-menu hidden" id="markdownImageContextMenu" role="menu" aria-label="图片编辑菜单">
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:open"><span class="icon-slot" data-icon="ExternalLink"></span><strong>在浏览器中打开图片</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:copy-address"><span class="icon-slot" data-icon="Copy"></span><strong>复制图片地址</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:reveal"><span class="icon-slot" data-icon="FolderOpen"></span><strong>在资源管理器中显示</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:copy-to"><span class="icon-slot" data-icon="Files"></span><strong>复制图片到...</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:move-to" data-needs-edit><span class="icon-slot" data-icon="Replace"></span><strong>重命名 / 移动图片到...</strong><small></small></button>
+        <div class="menu-divider"></div>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:replace" data-needs-edit><span class="icon-slot" data-icon="Replace"></span><strong>替换图片</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:edit" data-needs-edit><span class="icon-slot" data-icon="Edit3"></span><strong>编辑图片属性</strong><small></small></button>
+
+        <div class="markdown-context-submenu-host">
+          <button class="menu-row markdown-context-parent" type="button" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-markdown-submenu="markdownImageScaleMenu" data-needs-edit>
+            <span class="icon-slot" data-icon="ZoomIn"></span><strong>缩放图片</strong><small class="icon-slot submenu-chevron" data-icon="ChevronRight"></small>
+          </button>
+          <div class="markdown-context-submenu markdown-image-scale-submenu hidden" id="markdownImageScaleMenu" role="menu" aria-label="缩放图片">
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:scale-25" data-needs-edit><span class="icon-slot" data-icon="Minus"></span><strong>25%</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:scale-50" data-needs-edit><span class="icon-slot" data-icon="Minus"></span><strong>50%</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:scale-75" data-needs-edit><span class="icon-slot" data-icon="ZoomOut"></span><strong>75%</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:scale-100" data-needs-edit><span class="icon-slot" data-icon="ZoomIn"></span><strong>100%</strong><small></small></button>
+            <div class="menu-divider"></div>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:scale-fit" data-needs-edit><span class="icon-slot" data-icon="Maximize2"></span><strong>适应编辑器宽度</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:scale-original" data-needs-edit><span class="icon-slot" data-icon="Image"></span><strong>原始尺寸</strong><small></small></button>
+          </div>
+        </div>
+
+        <div class="markdown-context-submenu-host">
+          <button class="menu-row markdown-context-parent" type="button" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-markdown-submenu="markdownImageAlignMenu" data-needs-edit>
+            <span class="icon-slot" data-icon="AlignCenter"></span><strong>图片对齐</strong><small class="icon-slot submenu-chevron" data-icon="ChevronRight"></small>
+          </button>
+          <div class="markdown-context-submenu markdown-image-align-submenu hidden" id="markdownImageAlignMenu" role="menu" aria-label="图片对齐">
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:align-inline" data-needs-edit><span class="icon-slot" data-icon="WrapText"></span><strong>行内</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:align-left" data-needs-edit><span class="icon-slot" data-icon="AlignLeft"></span><strong>左对齐</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:align-center" data-needs-edit><span class="icon-slot" data-icon="AlignCenter"></span><strong>居中</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:align-right" data-needs-edit><span class="icon-slot" data-icon="AlignRight"></span><strong>右对齐</strong><small></small></button>
+          </div>
+        </div>
+
+        <div class="markdown-context-submenu-host">
+          <button class="menu-row markdown-context-parent" type="button" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-markdown-submenu="markdownImageSyntaxMenu" data-needs-edit>
+            <span class="icon-slot" data-icon="Code2"></span><strong>转换图片语法</strong><small class="icon-slot submenu-chevron" data-icon="ChevronRight"></small>
+          </button>
+          <div class="markdown-context-submenu markdown-image-syntax-submenu hidden" id="markdownImageSyntaxMenu" role="menu" aria-label="转换图片语法">
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:syntax-markdown" data-needs-edit><span class="icon-slot" data-icon="FileText"></span><strong>Markdown 语法</strong><small></small></button>
+            <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="image:syntax-html" data-needs-edit><span class="icon-slot" data-icon="Code2"></span><strong>HTML 语法</strong><small></small></button>
+          </div>
+        </div>
+
+        <div class="menu-divider"></div>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="image:copy-markdown"><span class="icon-slot" data-icon="ClipboardCopy"></span><strong>复制图片 Markdown</strong><small></small></button>
+        <button class="menu-row danger" type="button" role="menuitem" data-markdown-action="image:delete" data-needs-edit><span class="icon-slot" data-icon="Trash2"></span><strong>删除图片</strong><small></small></button>
+      </section>
+
+      <section class="popover markdown-context-menu markdown-table-context-menu hidden" id="markdownTableContextMenu" role="menu" aria-label="表格编辑菜单">
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:insert-row-above"><span class="icon-slot" data-icon="BetweenVerticalStart"></span><strong>上方插入行</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:insert-row-below"><span class="icon-slot" data-icon="BetweenVerticalEnd"></span><strong>下方插入行</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:insert-column-left"><span class="icon-slot" data-icon="BetweenHorizontalStart"></span><strong>左侧插入列</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:insert-column-right"><span class="icon-slot" data-icon="BetweenHorizontalEnd"></span><strong>右侧插入列</strong><small></small></button>
+        <div class="menu-divider"></div>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:move-row-up"><span class="icon-slot" data-icon="ArrowUp"></span><strong>上移该行</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:move-row-down"><span class="icon-slot" data-icon="ArrowDown"></span><strong>下移该行</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:move-column-left"><span class="icon-slot" data-icon="ArrowLeft"></span><strong>左移该列</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:move-column-right"><span class="icon-slot" data-icon="ArrowRight"></span><strong>右移该列</strong><small></small></button>
+        <div class="menu-divider"></div>
+        <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="table:align-left"><span class="icon-slot" data-icon="AlignLeft"></span><strong>左对齐该列</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="table:align-center"><span class="icon-slot" data-icon="AlignCenter"></span><strong>居中对齐该列</strong><small></small></button>
+        <button class="menu-row" type="button" role="menuitemradio" data-markdown-action="table:align-right"><span class="icon-slot" data-icon="AlignRight"></span><strong>右对齐该列</strong><small></small></button>
+        <div class="menu-divider"></div>
+        <button class="menu-row" type="button" role="menuitem" data-markdown-action="table:copy"><span class="icon-slot" data-icon="Copy"></span><strong>复制表格</strong><small></small></button>
+        <button class="menu-row danger" type="button" role="menuitem" data-markdown-action="table:remove-row"><span class="icon-slot" data-icon="Trash2"></span><strong>删除行</strong><small></small></button>
+        <button class="menu-row danger" type="button" role="menuitem" data-markdown-action="table:remove-column"><span class="icon-slot" data-icon="Trash2"></span><strong>删除列</strong><small></small></button>
+        <button class="menu-row danger" type="button" role="menuitem" data-markdown-action="table:remove-table"><span class="icon-slot" data-icon="Trash2"></span><strong>删除表格</strong><small></small></button>
+      </section>
+
+      <section class="command-popover hidden" id="commandPalette">
+        <header class="popover-head">
+          <strong>命令</strong>
+          <span>执行常用动作或打开文件</span>
+        </header>
+        <input id="commandInput" placeholder="输入命令、文件名或语言" />
+        <div class="command-list" id="commandList"></div>
+      </section>
+
+      <section class="find-popover right-sidebar hidden" id="findPopover" aria-label="右侧工具栏">
+        <div class="right-sidebar-resize" id="rightSidebarResize" role="separator" aria-orientation="vertical" aria-label="调整右侧栏宽度" tabindex="0"></div>
+        <div class="right-search-dock" id="rightSearchDock">
+        <div class="right-tool-pane" id="searchToolPane">
+          <div class="segmented find-view-tabs">
+            <button class="seg current-find-view active" data-find-view="find">查找</button>
+            <button class="seg current-find-view" data-find-view="replace">替换</button>
+            <button class="seg workspace-find-view" data-find-view="workspace-find">文件查找</button>
+            <button class="seg workspace-find-view" data-find-view="workspace-replace">文件替换</button>
+          </div>
+          <div class="find-body">
+            <div class="field-stack">
+              <div class="find-query-row search-history-field">
+                <label for="findInput">查找目标</label>
+                <div class="search-history-control">
+                  <input id="findInput" autocomplete="off" aria-controls="findHistoryMenu" aria-expanded="false" placeholder="输入要查找的文本" />
+                  <button class="search-history-toggle" id="findHistoryButton" type="button" aria-label="搜索历史" aria-controls="findHistoryMenu" aria-expanded="false" title="搜索历史"><span class="icon-slot" data-icon="ChevronDown"></span></button>
+                  <div class="search-history-menu hidden" id="findHistoryMenu" role="listbox" aria-label="搜索历史"></div>
+                </div>
+              </div>
+              <div class="replace-query-row search-history-field">
+                <label for="replaceInput">替换为</label>
+                <div class="search-history-control">
+                  <input id="replaceInput" autocomplete="off" aria-controls="replaceHistoryMenu" aria-expanded="false" placeholder="输入替换文本" />
+                  <button class="search-history-toggle" id="replaceHistoryButton" type="button" aria-label="替换历史" aria-controls="replaceHistoryMenu" aria-expanded="false" title="替换历史"><span class="icon-slot" data-icon="ChevronDown"></span></button>
+                  <div class="search-history-menu hidden" id="replaceHistoryMenu" role="listbox" aria-label="替换历史"></div>
+                </div>
+              </div>
+              <div class="workspace-search-options">
+                <div class="checks find-flags" aria-label="查找选项">
+                  <label class="reverse-option" data-short="←" title="反向查找"><input type="checkbox" id="reverseSearchInput" /><span>反向查找</span></label>
+                  <label class="whole-word-option" data-short="W" title="全词匹配"><input type="checkbox" id="wholeWordInput" /><span>全词</span></label>
+                  <label class="match-case-option" data-short="Aa" title="匹配大小写"><input type="checkbox" id="matchCaseInput" /><span>区分大小写</span></label>
+                  <label class="wrap-option" data-short="循" title="循环查找"><input type="checkbox" id="wrapSearchInput" checked /><span>循环</span></label>
+                  <label class="selection-option" data-short="选" title="选取范围内"><input type="checkbox" id="searchSelectionInput" /><span>选区</span></label>
+                </div>
+                <fieldset class="search-mode-field" id="searchModeInput">
+                  <legend>查找模式</legend>
+                  <label class="literal-mode" data-short="文本"><input type="radio" name="searchMode" value="literal" checked /><span>普通</span></label>
+                  <label class="extended-mode" data-short="扩展"><input type="radio" name="searchMode" value="extended" /><span>扩展</span></label>
+                  <label class="regex-mode" data-short=".*"><input type="radio" name="searchMode" value="regex" /><span>正则</span></label>
+                </fieldset>
+              </div>
+              <details class="workspace-search-fields hidden" id="workspaceSearchFields" open>
+                <summary><span class="icon-slot" data-icon="ListFilter"></span><strong>文件过滤</strong><small>目录、掩码与排除项</small><span class="icon-slot workspace-filter-chevron" data-icon="ChevronDown"></span></summary>
+                <div class="workspace-search-filter-body">
+                  <label><span>目录</span><input id="directoryInput" placeholder="选择工作目录" /></label>
+                  <label><span>文件</span><input id="fileGlobInput" value="*.*" placeholder="例如 *.ts;*.rs" /></label>
+                  <label><span>排除</span><input id="skipDirsInput" value=".git;target;target-codex-run;node_modules;dist;build" /></label>
+                  <div class="checks workspace-search-flags">
+                    <label><input type="checkbox" id="recursiveInput" checked /><span>包含子目录</span></label>
+                    <label><input type="checkbox" id="includeHiddenInput" /><span>包含隐藏文件</span></label>
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div class="action-stack">
+              <button class="primary" id="findNextButton"><span class="icon-slot" data-icon="ArrowDown"></span><span>下一个</span></button>
+              <button id="findPreviousButton"><span class="icon-slot" data-icon="ArrowUp"></span><span>上一个</span></button>
+              <button id="findCurrentButton"><span class="icon-slot" data-icon="FileSearch"></span><span>全部查找</span></button>
+              <button id="replaceCurrentButton"><span class="icon-slot" data-icon="Replace"></span><span>替换当前</span></button>
+              <button id="replaceAllCurrentButton"><span class="icon-slot" data-icon="ReplaceAll"></span><span>全部替换</span></button>
+              <button class="primary workspace-search-submit" id="findWorkspaceButton"><span class="icon-slot workspace-action-icon" data-icon="Search"></span><span class="workspace-action-label">在文件中查找</span></button>
+              <button class="primary workspace-search-submit" id="previewWorkspaceReplaceButton"><span class="icon-slot workspace-action-icon" data-icon="ReplaceAll"></span><span class="workspace-action-label">预览全部替换</span></button>
+            </div>
+          </div>
+          <section class="find-results-pane" aria-label="搜索结果" aria-live="polite" aria-busy="false">
+            <header><strong id="findResultsTitle">搜索结果</strong><span id="findResultsSummary">暂无结果</span></header>
+            <div class="find-results-body" id="findResultsBody"></div>
+          </section>
+        </div>
+        </div>
+        <div class="right-tool-pane hidden" id="outlineToolPane">
+          <header class="outline-head"><strong>Markdown 大纲</strong><span id="outlineSummary"></span></header>
+          <nav class="outline-list" id="outlineList" role="tree" aria-label="Markdown 大纲"></nav>
+        </div>
+      </section>
+
+      <footer class="statusbar">
+        <div class="status-left">
+          <span id="statusBusy" aria-live="polite"></span>
+          <button class="status-action" id="languageButton" data-menu-trigger aria-label="语言 Plain Text" title="语言 Plain Text"><span data-label>Plain Text</span></button>
+          <button class="status-action" id="encodingButton" data-menu-trigger aria-label="编码 UTF-8" title="编码 UTF-8"><span data-label>UTF-8</span></button>
+          <button class="status-action" id="lineEndingButton" data-menu-trigger aria-label="行尾 LF" title="行尾 LF"><span data-label>LF</span></button>
+          <span id="statusDocumentState"></span>
+        </div>
+        <div class="status-right" id="statusRight"></div>
+      </footer>
+
+      <section class="modal-backdrop hidden" id="unsavedDialog" role="dialog" aria-modal="true" aria-labelledby="unsavedTitle">
+        <div class="modal">
+          <header>
+            <strong id="unsavedTitle">保存修改</strong>
+            <span id="unsavedSubtitle">文档有未保存的修改</span>
+          </header>
+          <div class="modal-body" id="unsavedBody"></div>
+          <footer>
+            <button class="tool-button" id="unsavedCancelButton">取消</button>
+            <button class="tool-button" id="unsavedDiscardButton">不保存</button>
+            <button class="tool-button primary" id="unsavedSaveButton">保存</button>
+          </footer>
+        </div>
+      </section>
+
+      <section class="modal-backdrop hidden" id="confirmDialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="modal">
+          <header>
+            <strong id="confirmTitle">确认操作</strong>
+            <span id="confirmSubtitle">此操作需要确认</span>
+          </header>
+          <div class="modal-body" id="confirmBody"></div>
+          <footer>
+            <button class="tool-button" id="confirmCancelButton">取消</button>
+            <button class="tool-button primary" id="confirmOkButton">确认</button>
+          </footer>
+        </div>
+      </section>
+
+      <section class="modal-backdrop hidden" id="inputDialog" role="dialog" aria-modal="true" aria-labelledby="inputTitle">
+        <div class="modal">
+          <header>
+            <strong id="inputTitle">输入名称</strong>
+            <span id="inputSubtitle">请输入文件或文件夹名称</span>
+          </header>
+          <div class="modal-body">
+            <label class="prompt-field">
+              <span id="inputLabel">名称</span>
+              <input id="inputDialogInput" autocomplete="off" />
+            </label>
+          </div>
+          <footer>
+            <button class="tool-button" id="inputCancelButton">取消</button>
+            <button class="tool-button primary" id="inputOkButton">确认</button>
+          </footer>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

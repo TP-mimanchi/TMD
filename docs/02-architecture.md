@@ -4,13 +4,13 @@
 
 ```text
 crates/
-  notra-core/   文档模型、文件 IO、搜索替换、目录扫描
-  notra-app/    eframe/egui 桌面应用和交互
+  tmd-core/   文档模型、文件 IO、搜索替换、目录扫描
+  tmd-app/    eframe/egui 桌面应用和交互
 ```
 
 ## 核心边界
 
-`notra-core` 不依赖 GUI，负责：
+`tmd-core` 不依赖 GUI，负责：
 
 - 文档状态。
 - 编码识别和保存。
@@ -18,7 +18,7 @@ crates/
 - 目录扫描。
 - 结果统计。
 
-`notra-app` 负责：
+`tmd-app` 负责：
 
 - 现代工具台 UI。
 - 多 Tab。

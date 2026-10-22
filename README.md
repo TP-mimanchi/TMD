@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="crates/notra-app/icons/128x128.png" width="96" height="96" alt="Notra icon" />
+  <img src="crates/tmd-app/icons/128x128.png" width="96" height="96" alt="TMD icon" />
 </p>
 
-<h1 align="center">Notra</h1>
+<h1 align="center">TMD</h1>
 
 <p align="center">轻量、快速、面向文本与 Markdown 的桌面编辑器。</p>
 
@@ -13,9 +13,9 @@
   <img src="https://img.shields.io/badge/Monaco-0.53-007acc.svg" alt="Monaco Editor" />
 </p>
 
-Notra 将 Notepad++ 的轻量文件编辑体验、VS Code 的工作区导航，以及 MarkText 风格的 Markdown 即时编辑整合在一个本地优先的桌面应用中。编辑器基于 Monaco，桌面外壳和文件能力由 Tauri 与 Rust 提供。
+TMD 将 Notepad++ 的轻量文件编辑体验、VS Code 的工作区导航，以及 MarkText 风格的 Markdown 即时编辑整合在一个本地优先的桌面应用中。编辑器基于 Monaco，桌面外壳和文件能力由 Tauri 与 Rust 提供。
 
-![Notra Markdown workspace](docs/screenshots/notra-markdown.png)
+![TMD Markdown workspace](docs/screenshots/tmd-markdown.png)
 
 ## 主要功能
 
@@ -31,9 +31,9 @@ Notra 将 Notepad++ 的轻量文件编辑体验、VS Code 的工作区导航，�
 
 ## 当前状态
 
-Notra 仍在持续开发中。GitHub Releases 提供 Windows x64、macOS ARM64 与 Linux x64 安装包，其中 Windows 10/11 是当前主要测试平台，macOS 与 Linux 版本由 GitHub Actions 自动构建。
+TMD 仍在持续开发中。GitHub Releases 提供 Windows x64、macOS ARM64 与 Linux x64 安装包，其中 Windows 10/11 是当前主要测试平台，macOS 与 Linux 版本由 GitHub Actions 自动构建。
 
-Windows 安装包可从 [GitHub Releases](https://github.com/syscryer/Notra/releases) 获取。
+Windows 安装包可从 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 获取。
 
 ## 本地开发
 
@@ -47,21 +47,21 @@ Windows 安装包可从 [GitHub Releases](https://github.com/syscryer/Notra/rele
 安装前端依赖：
 
 ```powershell
-cd crates\notra-app\frontend
+cd crates\tmd-app\frontend
 npm install
 ```
 
 启动桌面开发模式：
 
 ```powershell
-cd crates\notra-app
+cd crates\tmd-app
 cargo tauri dev
 ```
 
 构建 Windows 安装包：
 
 ```powershell
-cd crates\notra-app
+cd crates\tmd-app
 cargo tauri build
 ```
 
@@ -72,7 +72,7 @@ cargo tauri build
 ```powershell
 cargo test --workspace
 
-cd crates\notra-app\frontend
+cd crates\tmd-app\frontend
 npm run test:keybindings
 npm run build
 ```
@@ -80,15 +80,15 @@ npm run build
 ## 项目结构
 
 ```text
-crates/notra-app/           Tauri 桌面应用与前端界面
-crates/notra-core/          文档、编码、搜索和文件系统核心
-crates/notra-app/frontend/  Monaco 与 Markdown 编辑体验
+crates/tmd-app/           Tauri 桌面应用与前端界面
+crates/tmd-core/          文档、编码、搜索和文件系统核心
+crates/tmd-app/frontend/  Monaco 与 Markdown 编辑体验
 docs/                       产品、架构和界面资料
 scripts/                    上游同步及开发脚本
 ```
 
 ## 开源与致谢
 
-Notra 使用 [MIT License](LICENSE) 开源。
+TMD 使用 [MIT License](LICENSE) 开源。
 
-Markdown 即时编辑能力基于 [MarkText](https://github.com/marktext/marktext) 的 Muya 编辑器演进，固定的上游版本和许可证保留在 `crates/notra-app/frontend/vendor/marktext-muya`。代码编辑能力由 [Monaco Editor](https://github.com/microsoft/monaco-editor) 提供。各第三方依赖继续遵循其各自许可证。
+Markdown 即时编辑能力基于 [MarkText](https://github.com/marktext/marktext) 的 Muya 编辑器演进，固定的上游版本和许可证保留在 `crates/tmd-app/frontend/vendor/marktext-muya`。代码编辑能力由 [Monaco Editor](https://github.com/microsoft/monaco-editor) 提供。各第三方依赖继续遵循其各自许可证。

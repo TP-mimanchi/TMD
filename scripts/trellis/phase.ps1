@@ -25,11 +25,11 @@ switch ($Phase) {
     }
     "03-editor-core" {
         Write-Output "Goal: implement the editor core."
-        Write-Output "Output: crates/notra-core"
+        Write-Output "Output: crates/tmd-core"
     }
     "04-search-replace" {
         Write-Output "Goal: implement the core search and replace experience."
-        Write-Output "Output: crates/notra-core/src/search.rs and app panel"
+        Write-Output "Output: crates/tmd-core/src/search.rs and app panel"
     }
     "05-performance" {
         Write-Output "Goal: verify performance targets."

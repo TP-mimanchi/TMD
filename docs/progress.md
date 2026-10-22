@@ -5,8 +5,8 @@
 - 项目方向已确定：漂亮、便捷、速度快。
 - 核心卖点已确定：搜索与替换体验。
 - 风格参考已确定：Catio 外壳、mxterm 密度、Notepad++ 搜索替换。
-- Trellis 生命周期入口已迁入 Notra 仓库。
-- Rust workspace 已落地：`notra-core` 提供文档、编码、搜索替换、目录扫描能力，`notra-app` 已切换为 Tauri + Monaco 桌面 UI。
+- Trellis 生命周期入口已迁入 TMD 仓库。
+- Rust workspace 已落地：`tmd-core` 提供文档、编码、搜索替换、目录扫描能力，`tmd-app` 已切换为 Tauri + Monaco 桌面 UI。
 - 当前文件搜索、替换当前、全部替换、目录搜索、目录替换预览、确认写回已经可用。
 - 搜索/替换输入已改为 Notepad++ 风格浮动工具窗，不再常驻主界面底部。
 - 主窗口已调整为 Notepad++ 式干净结构：无常驻左侧文件树、无右侧工具轨，底部结果面板默认隐藏并按需显示。

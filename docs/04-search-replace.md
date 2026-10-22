@@ -4,7 +4,7 @@
 
 参考 notepad-- 源码中的 `findwin`、`dirfindfile`、`findresultwin`、`batchfindreplace`，只提炼行为，不复制实现。
 
-Notra v0.1 落地：
+TMD v0.1 落地：
 
 - 当前文件查找。
 - 当前文件替换。

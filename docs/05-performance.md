@@ -9,7 +9,7 @@
 
 ## 当前实现策略
 
-- 搜索核心在 `notra-core`，方便单独测试和优化。
+- 搜索核心在 `tmd-core`，方便单独测试和优化。
 - 目录扫描限制单文件大小，默认跳过 20MB 以上文件。
 - 搜索结果只保存必要上下文。
 - 目录搜索、目录替换预览、目录替换写回在 app 层使用后台线程执行。
@@ -22,7 +22,7 @@
 ```powershell
 cargo test --workspace
 cargo check --workspace
-cargo run -p notra-core --example perf_smoke
+cargo run -p tmd-core --example perf_smoke
 ```
 
 `perf_smoke` 会生成约 12 万行内存文本和 160 个临时文本文件，验证内存查找、内存替换和目录搜索耗时。

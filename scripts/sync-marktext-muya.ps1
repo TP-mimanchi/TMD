@@ -9,13 +9,13 @@ function Write-Utf8NoBom([string]$Path, [string]$Content) {
 }
 
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$vendorRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot "crates/notra-app/frontend/vendor/marktext-muya"))
+$vendorRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot "crates/tmd-app/frontend/vendor/marktext-muya"))
 $repoPrefix = $repoRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
 if (-not $vendorRoot.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Vendor target is outside the repository: $vendorRoot"
 }
 
-$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "notra-marktext-muya-$PID"
+$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "tmd-marktext-muya-$PID"
 $checkoutRoot = Join-Path $temporaryRoot "marktext"
 $stagingRoot = "$vendorRoot.staging-$PID"
 $backupRoot = "$vendorRoot.backup-$PID"
@@ -41,11 +41,11 @@ try {
     $prismLoaderPath = Join-Path $stagingRoot "src/utils/prism/loadLanguage.ts"
     $prismLoader = [System.IO.File]::ReadAllText($prismLoaderPath)
     $upstreamPrismPath = "../../../node_modules/prismjs/components/prism-`${lang}.js"
-    $notraPrismPath = "../../../../../node_modules/prismjs/components/prism-`${lang}.js"
+    $tmdPrismPath = "../../../../../node_modules/prismjs/components/prism-`${lang}.js"
     if (-not $prismLoader.Contains($upstreamPrismPath)) {
-        throw "The MarkText Prism loader changed; review the Notra integration patch."
+        throw "The MarkText Prism loader changed; review the TMD integration patch."
     }
-    Write-Utf8NoBom $prismLoaderPath ($prismLoader.Replace($upstreamPrismPath, $notraPrismPath))
+    Write-Utf8NoBom $prismLoaderPath ($prismLoader.Replace($upstreamPrismPath, $tmdPrismPath))
 
     $adapter = Get-Content -LiteralPath (Join-Path $vendorRoot "package.json") -Raw | ConvertFrom-Json
     $upstream = Get-Content -LiteralPath (Join-Path $stagingRoot "upstream-package.json") -Raw | ConvertFrom-Json
@@ -61,7 +61,7 @@ try {
         commit = $commit
         packagePath = "packages/muya"
         integrationPatches = @(
-            "Resolve Prism components from the Notra frontend node_modules directory"
+            "Resolve Prism components from the TMD frontend node_modules directory"
         )
         syncedAt = (Get-Date -Format "yyyy-MM-dd")
     }
@@ -85,7 +85,7 @@ try {
         Write-Warning "MarkText was updated, but the backup directory could not be removed: $backupRoot"
     }
 
-    Write-Host "Synced MarkText $Tag ($commit). Run npm install in crates/notra-app/frontend."
+    Write-Host "Synced MarkText $Tag ($commit). Run npm install in crates/tmd-app/frontend."
 }
 finally {
     if (-not (Test-Path -LiteralPath $vendorRoot) -and (Test-Path -LiteralPath $backupRoot)) {

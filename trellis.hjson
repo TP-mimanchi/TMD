@@ -2,7 +2,7 @@
   version: "1.0"
 
   project: {
-    name: "notra"
+    name: "tmd"
     description: "漂亮、便捷、速度快的 Rust 原生文本编辑器，核心强化搜索与替换。"
   }
 
