@@ -27,6 +27,7 @@
   --glass-row-glint: rgba(255, 255, 255, 0.4);
   --glass-shadow: 0 28px 68px rgba(15, 23, 42, 0.16), 0 8px 24px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   --glass-blur: 22px;
+  --find-dock-surface: rgba(244, 246, 250, 0.66);
   --font: "Inter", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
   --ui-font-size: 14px;
   --editor-font: "Cascadia Code", "Cascadia Mono", Consolas, "Microsoft YaHei UI", monospace;
@@ -60,6 +61,7 @@ body.dark {
   --glass-row-active: rgba(49, 55, 102, 0.76);
   --glass-row-glint: rgba(255, 255, 255, 0.08);
   --glass-shadow: 0 30px 70px rgba(0, 0, 0, 0.34), 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --find-dock-surface: rgba(30, 37, 50, 0.72);
 }
 
 * {
@@ -4907,6 +4909,7 @@ tbody tr.result-active {
 }
 
 .editor-wrap {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
 }
@@ -4950,12 +4953,19 @@ tbody tr.result-active {
 }
 
 .current-find-dock {
-  position: relative;
-  grid-row: 1;
-  z-index: 20;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  width: max-content;
+  max-width: calc(100% - 24px);
   min-width: 0;
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--find-dock-surface);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.36);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.36);
 }
 
 .toolbar > .right-tool-tabs {
@@ -4981,25 +4991,18 @@ tbody tr.result-active {
 }
 
 .current-find-bar {
-  min-width: 0;
-  height: 42px;
+  min-width: 336px;
   display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-
-.current-find-bar::-webkit-scrollbar {
-  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
 }
 
 .current-find-query {
-  width: 320px;
+  width: 100%;
   min-width: 220px;
-  flex: 0 1 320px;
+  flex: none;
   height: 30px;
   position: relative;
 }
@@ -5011,19 +5014,19 @@ tbody tr.result-active {
 }
 
 #currentReplaceInput {
-  width: 220px;
-  min-width: 160px;
-  flex: 0 1 220px;
+  width: 100%;
+  min-width: 0;
+  flex: none;
 }
 
 #currentFindInput,
 #currentReplaceInput {
   height: 30px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   padding: 0 9px;
   color: var(--text);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 48%, transparent);
   outline: none;
 }
 
@@ -5061,7 +5064,7 @@ tbody tr.result-active {
   width: min(320px, calc(100vw - 24px));
   max-height: 240px;
   position: absolute;
-  top: 37px;
+  top: 46px;
   left: 8px;
   z-index: 30;
   overflow: auto;
@@ -5166,6 +5169,17 @@ tbody tr.result-active {
 .current-find-actions .lucide-icon {
   width: 15px;
   height: 15px;
+}
+
+.current-find-footer {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.current-find-footer .current-find-count {
+  margin-left: auto;
 }
 
 .current-find-count {

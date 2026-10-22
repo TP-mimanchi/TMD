@@ -31,9 +31,7 @@ TMD 将 Notepad++ 的轻量文件编辑体验、VS Code 的工作区导航，以
 
 ## 当前状态
 
-TMD 仍在持续开发中。GitHub Releases 提供 Windows x64、macOS ARM64 与 Linux x64 安装包，其中 Windows 10/11 是当前主要测试平台，macOS 与 Linux 版本由 GitHub Actions 自动构建。
-
-Windows 安装包可从 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 获取。
+TMD 仍在持续开发中，当前主要测试平台为 Windows 10/11。Windows x64、macOS ARM64（Apple Silicon）与 Linux x64 安装包均由 GitHub Actions 自动构建，发布版本从 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 获取。
 
 ## 本地开发
 
@@ -42,7 +40,7 @@ Windows 安装包可从 [GitHub Releases](https://github.com/TP-mimanchi/TMD/rel
 - Rust stable
 - Node.js 20.19 或更高版本
 - npm 8 或更高版本
-- Windows WebView2 Runtime
+- Windows WebView2 Runtime（macOS 与 Linux 无需额外安装）
 
 安装前端依赖：
 
@@ -58,7 +56,9 @@ cd crates\tmd-app
 cargo tauri dev
 ```
 
-构建 Windows 安装包：
+> Tauri CLI 会自动在 `crates/tmd-app/frontend` 目录执行 `npm run dev` / `npm run build`，因此在仓库任意目录调用 `cargo tauri` 均可。
+
+构建安装包：
 
 ```powershell
 cd crates\tmd-app
@@ -66,6 +66,78 @@ cargo tauri build
 ```
 
 产物位于 `target\release\bundle`。
+
+> `tauri.conf.json` 中开启了 `createUpdaterArtifacts`（自动更新），构建时需提供更新签名密钥，否则会报 `no Tauri private key provided`。本地构建可先生成一对密钥：
+>
+> ```bash
+> cargo tauri signer generate -w ~/.tauri/tmd.key
+> export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/tmd.key"   # Windows: $env:TAURI_SIGNING_PRIVATE_KEY
+> ```
+
+## 构建 macOS 应用
+
+Tauri 不支持在 Windows 上交叉编译 macOS 应用，macOS 版本必须在 Mac 环境构建。有两种方式：
+
+### 方式一：在 Mac 上本地构建
+
+前置依赖（在 Mac 上安装）：
+
+```bash
+# Xcode 命令行工具
+xcode-select --install
+
+# Rust stable（已有可跳过）
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 按芯片类型添加目标
+rustup target add aarch64-apple-darwin   # Apple Silicon（M1~M4）
+# rustup target add x86_64-apple-darwin  # Intel Mac
+```
+
+并安装 Node.js 20.19 或更高版本。然后：
+
+```bash
+git clone <仓库地址> TMD && cd TMD
+
+cd crates/tmd-app/frontend
+npm install
+
+# 更新签名密钥（见“本地开发”一节说明，已设置可跳过）
+cargo tauri signer generate -w ~/.tauri/tmd.key
+export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/tmd.key"
+
+cd crates/tmd-app
+# Apple Silicon
+cargo tauri build --target aarch64-apple-darwin
+# Intel Mac
+# cargo tauri build --target x86_64-apple-darwin
+```
+
+构建产物位于 `target/aarch64-apple-darwin/release/bundle`：
+
+- `macos/TMD.app`：应用本体，可直接拖入「应用程序」
+- `dmg/TMD_<版本>_aarch64.dmg`：磁盘镜像安装包
+- `macos/TMD.app.tar.gz` 与 `.sig`：自动更新产物
+
+其他 Mac 首次打开未经公证的 `TMD.app` 会被 Gatekeeper 拦截，右键选择「打开」或执行 `xattr -dr com.apple.quarantine /Applications/TMD.app` 即可。正式分发建议配置 Apple 开发者证书签名与公证。
+
+调试阶段也可以直接在 Mac 上运行 `cargo tauri dev`，流程与 Windows 一致。
+
+### 方式二：GitHub Actions 自动构建（无需本地 Mac）
+
+`.github/workflows/release.yml` 已配置 Windows / macOS（macos-26 runner，ARM64）/ Linux 三平台构建矩阵，自动签名并发布（依赖仓库 secret `TAURI_SIGNING_PRIVATE_KEY`）。
+
+1. 确认 `crates/tmd-app/tauri.conf.json` 中的 `version` 是本次发布版本（当前 `0.1.8`）。
+2. 推送对应 tag 触发发布流水线：
+
+   ```bash
+   git tag v0.1.8
+   git push origin v0.1.8
+   ```
+
+3. 流水线完成后，到 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 下载 `TMD_0.1.8_aarch64.dmg`，在 Mac 上安装即可。
+
+仅想构建而不发布 Release 时，可以在 GitHub 仓库的 Actions 页面手动运行 `Release` workflow，产物在该 workflow 的 Artifacts 中下载（此模式不会创建 GitHub Release）。
 
 ## 验证
 
