@@ -4099,7 +4099,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tmd-app"
-version = "0.1.8"
+version = "0.1.0"
 dependencies = [
  "regex",
  "rfd",
@@ -4118,7 +4118,7 @@ dependencies = [
 
 [[package]]
 name = "tmd-core"
-version = "0.1.8"
+version = "0.1.0"
 dependencies = [
  "encoding_rs",
  "memmap2",

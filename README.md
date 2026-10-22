@@ -127,15 +127,15 @@ cargo tauri build --target aarch64-apple-darwin
 
 `.github/workflows/release.yml` 已配置 Windows / macOS（macos-26 runner，ARM64）/ Linux 三平台构建矩阵，自动签名并发布（依赖仓库 secret `TAURI_SIGNING_PRIVATE_KEY`）。
 
-1. 确认 `crates/tmd-app/tauri.conf.json` 中的 `version` 是本次发布版本（当前 `0.1.8`）。
+1. 确认 `crates/tmd-app/tauri.conf.json` 中的 `version` 是本次发布版本（当前 `0.1.0`）。
 2. 推送对应 tag 触发发布流水线：
 
    ```bash
-   git tag v0.1.8
-   git push origin v0.1.8
+   git tag v0.1.0
+   git push origin v0.1.0
    ```
 
-3. 流水线完成后，到 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 下载 `TMD_0.1.8_aarch64.dmg`，在 Mac 上安装即可。
+3. 流水线完成后，到 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 下载 `TMD_0.1.0_aarch64.dmg`，在 Mac 上安装即可。
 
 仅想构建而不发布 Release 时，可以在 GitHub 仓库的 Actions 页面手动运行 `Release` workflow，产物在该 workflow 的 Artifacts 中下载（此模式不会创建 GitHub Release）。
 
