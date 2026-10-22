@@ -1,6 +1,12 @@
 import components from 'prismjs/components.js';
 import getLoader from 'prismjs/dependencies';
 
+// Keep all grammars, but avoid bundling the duplicate minified distribution.
+const grammarModules = import.meta.glob([
+    '../../../../../node_modules/prismjs/components/prism-*.js',
+    '!../../../../../node_modules/prismjs/components/prism-*.min.js',
+]);
+
 interface ILangLoadStatus {
     lang: string;
     status: 'noexist' | 'cached' | 'loaded';
@@ -91,9 +97,10 @@ function initLoadLanguage(Prism: IPrismLike) {
                 return;
             }
             delete Prism.languages[lang];
-            await import(
-                `../../../../../node_modules/prismjs/components/prism-${lang}.js`,
-            );
+            const load = grammarModules[`../../../../../node_modules/prismjs/components/prism-${lang}.js`];
+            if (!load)
+                throw new Error(`Missing Prism grammar: ${lang}`);
+            await load();
             loadedLanguages.add(lang);
             statuses.push({ lang, status: 'loaded' });
         };

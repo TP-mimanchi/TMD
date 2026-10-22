@@ -121,9 +121,7 @@ import {
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
-import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
-import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
-import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
+import { createCoalescedUpdate } from "./updateScheduler";
 import "monaco-editor/esm/vs/basic-languages/monaco.contribution";
 import "monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations";
 import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
@@ -349,9 +347,8 @@ declare global {
 window.MonacoEnvironment = {
   getWorker(_workerId, label) {
     if (label === "json") return new jsonWorker();
-    if (label === "css" || label === "scss" || label === "less") return new cssWorker();
-    if (label === "html" || label === "handlebars" || label === "razor") return new htmlWorker();
-    if (label === "typescript" || label === "javascript") return new tsWorker();
+    // Only JSON language services are registered; basic-language tokenizers use
+    // the editor worker and do not require the HTML/CSS/TypeScript services.
     return new editorWorker();
   },
 };
@@ -1144,6 +1141,23 @@ function setIconSlot(slot: HTMLElement | null, name: string) {
   slot.dataset.icon = name;
   slot.innerHTML = iconSvg(name);
 }
+
+const chromeUpdate = createCoalescedUpdate<void>(
+  () => renderChrome(),
+  (callback) => window.requestAnimationFrame(callback),
+  (id) => window.cancelAnimationFrame(id),
+);
+
+const outlineUpdate = createCoalescedUpdate<void>(
+  () => {
+    if (!$("findPopover").classList.contains("hidden") && state.rightTool === "outline") {
+      renderMarkdownOutline();
+    }
+  },
+  (callback) => window.setTimeout(callback, 150),
+  (id) => window.clearTimeout(id),
+  true,
+);
 
 bootstrap();
 
@@ -2057,7 +2071,7 @@ function bindActions() {
   $("appUpdateCloseButton").addEventListener("click", closeAppUpdatePopover);
   $("appUpdatePopoverInstallButton").addEventListener("click", () => void installAppUpdate());
 
-  editor.onDidChangeCursorPosition(renderChrome);
+  editor.onDidChangeCursorPosition(() => chromeUpdate.schedule(undefined));
 }
 
 function bindAppMenus() {
@@ -3266,13 +3280,25 @@ function createDocument(
     savedText,
     encodingStatus: "编码已识别",
   };
+  const byteSizeUpdate = createCoalescedUpdate<void>(
+    () => {
+      if (model.isDisposed()) return;
+      doc.fileSize = new Blob([doc.text]).size;
+      if (doc.id === state.activeId) chromeUpdate.schedule(undefined);
+    },
+    (callback) => window.setTimeout(callback, 250),
+    (id) => window.clearTimeout(id),
+    true,
+  );
+  model.onWillDispose(() => byteSizeUpdate.cancel());
   model.onDidChangeContent(() => {
-    doc.dirty = model.getValue() !== doc.savedText;
-    doc.text = model.getValue();
-    doc.fileSize = new Blob([doc.text]).size;
+    const text = model.getValue();
+    doc.dirty = text !== doc.savedText;
+    doc.text = text;
+    byteSizeUpdate.schedule(undefined);
     state.searchRevision += 1;
-    renderChrome();
-    renderMarkdownOutline();
+    chromeUpdate.schedule(undefined);
+    outlineUpdate.schedule(undefined);
     scheduleMarkdownPreviewRender();
     if (doc.id === state.activeId) scheduleMarkdownEditorSync(doc);
     scheduleSessionSave();
@@ -3607,13 +3633,14 @@ async function closeDocument(id: number): Promise<boolean> {
 }
 
 function rememberClosedDocument(doc: OpenDocument) {
+  const text = doc.model.getValue();
   closedDocuments.unshift({
     title: doc.title,
     path: doc.path,
-    text: doc.model.getValue(),
+    text,
     encoding: doc.encoding,
     lineEnding: doc.lineEnding,
-    fileSize: doc.fileSize,
+    fileSize: new Blob([text]).size,
     readOnly: doc.readOnly,
     readOnlyReason: doc.readOnlyReason,
     language: doc.language,

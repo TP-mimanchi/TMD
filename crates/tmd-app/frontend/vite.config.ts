@@ -19,7 +19,8 @@ export default defineConfig({
           const normalizedId = id.replaceAll("\\", "/");
           // Prism grammars must stay as dynamic chunks so dependency order is preserved.
           if (normalizedId.includes("/node_modules/prismjs/components/prism-")) return;
-          if (id.includes("node_modules")) return "vendor";
+          // Preserve automatic shared chunks and dynamic renderer boundaries.
+          // A single vendor chunk eagerly pulls diagram engines into startup.
         },
       },
     },
