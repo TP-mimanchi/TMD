@@ -332,6 +332,7 @@ fn persisted_window_state_flags() -> tauri_plugin_window_state::StateFlags {
 
 pub fn run() {
     tauri::Builder::default()
+        .manage(OpenRequestQueue::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
@@ -374,7 +375,6 @@ pub fn run() {
             let store = SessionStore::new(database_path);
             store.initialize().map_err(std::io::Error::other)?;
             app.manage(store);
-            app.manage(OpenRequestQueue::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

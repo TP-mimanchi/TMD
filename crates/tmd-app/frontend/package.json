@@ -1,7 +1,7 @@
 {
   "name": "tmd-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
@@ -10,6 +10,7 @@
     "test:markdown": "node scripts/verify-mermaid-layout.mjs",
     "test:platform": "node scripts/verify-platform-window.mjs",
     "test:settings": "node scripts/verify-settings-isolation.mjs",
+    "test:startup": "node scripts/verify-startup.mjs",
     "test:performance": "node scripts/verify-update-scheduler.mjs && node scripts/verify-document-loading.mjs && node scripts/verify-markdown-sync.mjs && node scripts/verify-preview-cache.mjs && node scripts/verify-search-preview.mjs",
     "markdown:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../../scripts/sync-marktext-muya.ps1",
     "preview": "vite preview --host 127.0.0.1 --port 1420"

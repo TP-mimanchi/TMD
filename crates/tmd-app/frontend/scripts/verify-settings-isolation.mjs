@@ -16,6 +16,7 @@ export function harness() {
   };
   const $ = (id) => { if (!nodes.has(id)) nodes.set(id, makeNode()); return nodes.get(id); };
   const document = { body: makeNode() };
+  const appStarting = false;
   const closeMenus = () => {};
   const renderSettingsMenu = () => {};
   const refreshSystemIntegrationStatus = async () => {};

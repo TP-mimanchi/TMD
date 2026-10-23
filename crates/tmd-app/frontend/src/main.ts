@@ -228,6 +228,8 @@ interface OpenDocument extends DocumentDto {
   draftId?: string;
   skipSessionRestore?: boolean;
   deferred?: boolean;
+  markdownRichOptIn?: boolean;
+  markdownSourceForPerformance?: boolean;
   origin: DocumentOrigin;
   model: monaco.editor.ITextModel;
   dirty: boolean;
@@ -864,6 +866,8 @@ let treeMenuTarget: TreeContextTarget | null = null;
 let busyDepth = 0;
 let editorBusyDepth = 0;
 let openRequestTask: Promise<void> = Promise.resolve();
+let appStartupTask: Promise<void> = Promise.resolve();
+let appStarting = true;
 let fileDropTask: Promise<void> = Promise.resolve();
 let openRequestsReady = false;
 let titlebarMaximizeToggleAt = 0;
@@ -1171,7 +1175,7 @@ const documentLoads = createDocumentLoadQueue();
 bootstrap();
 
 function bootstrap() {
-  bindOpenRequestListener();
+  const openRequestListenerReady = bindOpenRequestListener();
   window.addEventListener("unhandledrejection", (event) => {
     log(`操作失败：${event.reason instanceof Error ? event.reason.message : String(event.reason)}`);
   });
@@ -1277,24 +1281,51 @@ function bootstrap() {
   void initializeAppUpdate();
   // First paint can run before grid tracks resolve; force layout so Monaco is not 0×0.
   requestEditorLayout();
-  void restoreSession()
+  setStartupInteractionBlocked(true);
+  const startupArgsTask = invoke<StartupArgsDto>("startup_args").catch((error) => {
+    log(`启动参数读取失败：${String(error)}`);
+    return { files: [], directories: [] };
+  });
+  appStartupTask = markAppReady()
     .then(async () => {
-      await syncSystemIntegrationPreferences();
-      await openStartupArgs();
-      openRequestsReady = true;
-      await drainOpenRequests();
+      const args = await startupArgsTask;
+      await restoreSession(args.files.length > 0);
+      // Registry work must never gate the shell or the first file request.
+      void syncSystemIntegrationPreferences().catch((error) => log(`系统集成同步失败：${String(error)}`));
+      await openRequestListenerReady;
+      await applyOpenRequest(args);
     })
-    .finally(markAppReady);
+    .catch((error) => log(`启动恢复失败：${String(error)}`))
+    .then(async () => {
+      await openRequestListenerReady;
+      openRequestsReady = true;
+      openRequestTask = openRequestTask.then(drainOpenRequests)
+        .catch((error) => log(`接收系统打开请求失败：${String(error)}`));
+      await openRequestTask;
+    })
+    .catch((error) => log(`启动请求处理失败：${String(error)}`))
+    .finally(() => {
+      appStarting = false;
+      setStartupInteractionBlocked(false);
+    });
   log("TMD Monaco UI ready");
 }
 
+function setStartupInteractionBlocked(blocked: boolean) {
+  document.querySelectorAll<HTMLElement>("#app > :not(.titlebar), #windowTitlebar button:not(.window-button)")
+    .forEach((element) => { element.inert = blocked; });
+}
+
 function markAppReady() {
-  window.requestAnimationFrame(() => {
+  return new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => {
-      requestEditorLayout();
-      document.body.classList.remove("booting");
-      $("bootSplash")?.remove();
-      void invoke("frontend_ready").catch((error) => log(`启动状态报告失败：${String(error)}`));
+      window.requestAnimationFrame(() => {
+        requestEditorLayout();
+        document.body.classList.remove("booting");
+        $("bootSplash")?.remove();
+        void invoke("frontend_ready").catch((error) => log(`启动状态报告失败：${String(error)}`));
+        resolve();
+      });
     });
   });
 }
@@ -1459,26 +1490,18 @@ function bindFileDrop() {
       return;
     }
 
-    const insideEditor = isDropPositionInsideEditor(payload.position);
     if (payload.type === "enter" || payload.type === "over") {
-      setFileDropActive(insideEditor);
+      setFileDropActive(true);
       return;
     }
 
     setFileDropActive(false);
-    if (!insideEditor || payload.paths.length === 0) return;
+    if (payload.paths.length === 0) return;
     fileDropTask = fileDropTask
+      .then(() => appStartupTask)
       .then(() => openDroppedFiles(payload.paths))
       .catch((error) => log(`拖放打开失败：${String(error)}`));
   }).catch((error) => log(`初始化文件拖放失败：${String(error)}`));
-}
-
-function isDropPositionInsideEditor(position: { x: number; y: number }) {
-  const rect = $<HTMLElement>("editorArea").getBoundingClientRect();
-  const scale = window.devicePixelRatio || 1;
-  const x = position.x / scale;
-  const y = position.y / scale;
-  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
 function setFileDropActive(active: boolean) {
@@ -1486,6 +1509,8 @@ function setFileDropActive(active: boolean) {
 }
 
 async function openDroppedFiles(paths: string[]) {
+  closeMenus();
+  closeSettingsPage();
   const seen = new Set<string>();
   const uniquePaths = paths.filter((path) => {
     const key = normalizePathForCompare(path);
@@ -1702,6 +1727,7 @@ function hasMatchingChordPrefix(binding: string, targetIsInput: boolean) {
 }
 
 function commandIsAvailable(item: AppCommand, targetIsInput = false) {
+  if (appStarting) return false;
   if (targetIsInput && !item.allowInInput) return false;
   return (item.when?.() ?? true) && (item.enabled?.() ?? true);
 }
@@ -2030,6 +2056,7 @@ function bindActions() {
     });
   });
   document.addEventListener("keydown", (event) => {
+    if (appStarting) return;
     if (handleContextMenuKeydown(event)) return;
     if (event.key === "F2" && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
       const focusedTreeItem = document.activeElement?.closest<HTMLButtonElement>(".tree-item");
@@ -2452,7 +2479,7 @@ function closeSettingsPage() {
   $("settingsPage").classList.add("hidden");
   $("app").classList.remove("settings-open");
   document.body.classList.remove("settings-open");
-  $("workspace").inert = false;
+  $("workspace").inert = appStarting;
   $("settingsButton").classList.remove("active");
 }
 
@@ -2739,7 +2766,7 @@ function integrationErrorMessage(action: string, error: unknown) {
 }
 
 function bindOpenRequestListener() {
-  void listen("open-request", () => {
+  return listen("open-request", () => {
     if (!openRequestsReady) return;
     openRequestTask = openRequestTask
       .then(drainOpenRequests)
@@ -2855,6 +2882,7 @@ function setMarkdownContentWidth(value: string) {
 
 function setMarkdownEditMode(mode: MarkdownEditMode) {
   if (!isMarkdownEditMode(mode)) return;
+  activeDocument().markdownRichOptIn = mode !== "source";
   if (state.markdownEditMode === "wysiwyg") {
     syncMarkdownModelFromEditor();
     markdownEditor?.hideFloatTools();
@@ -3110,6 +3138,7 @@ function bindWindowCloseGuard() {
   void appWindow.onCloseRequested(async (event) => {
     if (windowCloseConfirmed) return;
     event.preventDefault();
+    await appStartupTask;
     const canClose = await confirmCloseAll();
     if (!canClose) return;
     windowCloseConfirmed = true;
@@ -3119,6 +3148,7 @@ function bindWindowCloseGuard() {
 }
 
 async function requestWindowClose() {
+  await appStartupTask;
   const canClose = await confirmCloseAll();
   if (!canClose) return;
   windowCloseConfirmed = true;
@@ -3391,7 +3421,9 @@ function activateDocument(id: number) {
     previous.viewState = editor.saveViewState() ?? undefined;
   }
   state.activeId = id;
-  if (doc.deferred || !isMarkdownLikeDocument(doc) || state.markdownEditMode !== "wysiwyg") attachEditorModel(doc);
+  // The rich editor loads asynchronously. Its source fallback must already
+  // contain this document on the very first open.
+  attachEditorModel(doc);
   renderAll();
   if (doc.deferred) void ensureDocumentLoaded(doc);
   scheduleSessionSave();
@@ -5586,7 +5618,7 @@ function renderChrome() {
   const markdownDocument = isMarkdownLikeDocument(doc);
   $("markdownModeControl").classList.toggle("hidden", !markdownDocument);
   document.querySelectorAll<HTMLButtonElement>("[data-markdown-mode]").forEach((button) => {
-    const active = markdownDocument && button.dataset.markdownMode === state.markdownEditMode;
+    const active = markdownDocument && button.dataset.markdownMode === markdownEditModeFor(doc);
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
@@ -5610,7 +5642,7 @@ function renderChrome() {
   $("menuWordWrapButton").classList.toggle("active", state.wordWrap);
   ["wysiwyg", "split", "source"].forEach((mode) => {
     const button = $<HTMLButtonElement>(`menuMarkdown${mode[0].toUpperCase()}${mode.slice(1)}Button`);
-    const active = markdownDocument && state.markdownEditMode === mode;
+    const active = markdownDocument && markdownEditModeFor(doc) === mode;
     button.classList.toggle("active", active);
     button.setAttribute("aria-checked", String(active));
   });
@@ -6719,7 +6751,7 @@ function rangeFromMatch(match: TextMatchDto) {
 function renderMarkdownSurface() {
   const doc = activeDocument();
   const markdownDocument = isMarkdownLikeDocument(doc);
-  const wantsWysiwyg = !doc.deferred && markdownDocument && state.markdownEditMode === "wysiwyg";
+  const wantsWysiwyg = !doc.deferred && markdownDocument && markdownEditModeFor(doc) === "wysiwyg";
   disposeInactiveMarkdownEditors(wantsWysiwyg ? doc.id : 0);
   const cachedEntry = wantsWysiwyg ? markdownEditorCache.get(doc.id) : null;
   if (cachedEntry) activateMarkdownEditor(cachedEntry, doc);
@@ -6760,7 +6792,7 @@ async function ensureMarkdownEditor(doc: OpenDocument) {
   const entry = await promise;
   if (!entry) return null;
   const active = activeDocument();
-  if (active.id === doc.id && isMarkdownLikeDocument(active) && state.markdownEditMode === "wysiwyg") {
+  if (active.id === doc.id && isMarkdownLikeDocument(active) && markdownEditModeFor(active) === "wysiwyg") {
     activateMarkdownEditor(entry, active, true);
     renderMarkdownSurface();
   }
@@ -6773,7 +6805,7 @@ async function createMarkdownEditor(doc: OpenDocument): Promise<MarkdownEditorCa
     if (
       !state.documents.some((item) => item.id === doc.id)
       || state.activeId !== doc.id
-      || state.markdownEditMode !== "wysiwyg"
+      || markdownEditModeFor(doc) !== "wysiwyg"
       || !isMarkdownLikeDocument(doc)
     ) return null;
 
@@ -7329,12 +7361,21 @@ function syncMarkdownPreviewScroll() {
   preview.scrollTop = (editor.getScrollTop() / editorScrollable) * previewScrollable;
 }
 
+function markdownEditModeFor(doc = activeDocument()): MarkdownEditMode {
+  // Choose once at load. Crossing a threshold while typing must not silently
+  // switch command routing away from the editor that is still on screen.
+  if (doc.markdownSourceForPerformance === undefined && !doc.deferred) {
+    doc.markdownSourceForPerformance = doc.largeFile || doc.fileSize > 2 * 1024 * 1024 || doc.model.getLineCount() > 20_000;
+  }
+  return doc.markdownSourceForPerformance && !doc.markdownRichOptIn ? "source" : state.markdownEditMode;
+}
+
 function isMarkdownPreviewEnabled(doc = activeDocument()) {
-  return !doc.deferred && state.markdownEditMode === "split" && isMarkdownLikeDocument(doc);
+  return !doc.deferred && markdownEditModeFor(doc) === "split" && isMarkdownLikeDocument(doc);
 }
 
 function isMarkdownWysiwygActive(doc = activeDocument()) {
-  return !doc.deferred && state.markdownEditMode === "wysiwyg" && isMarkdownLikeDocument(doc) && markdownEditorDocumentId === doc.id;
+  return !doc.deferred && markdownEditModeFor(doc) === "wysiwyg" && isMarkdownLikeDocument(doc) && markdownEditorDocumentId === doc.id;
 }
 
 function isMarkdownEditMode(value: unknown): value is MarkdownEditMode {
@@ -8413,7 +8454,7 @@ function renderCommandSelection() {
   });
 }
 
-async function restoreSession() {
+async function restoreSession(skipActiveLoad = false) {
   let raw: string | null = null;
   let migratedLegacySession = false;
   try {
@@ -8545,7 +8586,7 @@ async function restoreSession() {
     }
     // Switch model first so the disposed placeholder is never left attached to the editor.
     const restoredActive = activeDocument();
-    await ensureDocumentLoaded(restoredActive);
+    if (!skipActiveLoad) await ensureDocumentLoaded(restoredActive);
     editor.setModel(restoredActive.model);
     applyEditorPerformanceProfile(restoredActive);
     if (restoredActive.viewState) editor.restoreViewState(restoredActive.viewState);
@@ -8567,7 +8608,7 @@ async function restoreSession() {
     log(`会话恢复失败：${String(error)}`);
   } finally {
     state.restoring = false;
-    renderMarkdownSurface();
+    if (!skipActiveLoad) renderMarkdownSurface();
     // Force a layout after shell chrome settles; Monaco can paint blank if height was 0 at create.
     window.requestAnimationFrame(() => {
       restoreEditorSurface();
@@ -8589,15 +8630,6 @@ async function restoreSession() {
   }
 }
 
-async function openStartupArgs() {
-  try {
-    const args = await invoke<StartupArgsDto>("startup_args");
-    await applyOpenRequest(args);
-  } catch (error) {
-    log(`启动参数处理失败：${String(error)}`);
-  }
-}
-
 async function drainOpenRequests() {
   const requests = await invoke<StartupArgsDto[]>("take_open_requests");
   for (const request of requests) {
@@ -8610,11 +8642,22 @@ async function applyOpenRequest(args: StartupArgsDto) {
   closeMenus();
   closeSettingsPage();
   if (args.directories[0]) {
-    await openWorkspacePath(args.directories[0]);
+    try {
+      await openWorkspacePath(args.directories[0]);
+    } catch (error) {
+      log(`打开工作区失败：${String(error)}`);
+    }
   }
   for (const path of args.files) {
-    await openPath(path, args.directories.length === 0);
+    try {
+      await openPath(path, args.directories.length === 0);
+    } catch (error) {
+      log(`打开 ${fileNameFromPath(path)} 失败：${String(error)}`);
+    }
   }
+  // If every external file failed, the previous tab is still the fallback.
+  // It may have deliberately skipped hydration during startup.
+  if (activeDocument().deferred) await ensureDocumentLoaded(activeDocument());
   renderAll();
   scheduleSessionSave();
 }

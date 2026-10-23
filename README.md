@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Monaco-0.53-007acc.svg" alt="Monaco Editor" />
 </p>
 
-TMD 将 Notepad++ 的轻量文件编辑体验、VS Code 的工作区导航，以及 MarkText 风格的 Markdown 即时编辑整合在一个本地优先的桌面应用中。编辑器基于 Monaco，桌面外壳和文件能力由 Tauri 与 Rust 提供。
+TMD 是一个的轻量文件编辑工具，主要特点是UI设计符合程序员审美，操作流畅，优化内存，打开迅速，使用Rust开发。
 
 ![TMD Markdown workspace](docs/screenshots/tmd-markdown.png)
 
@@ -28,10 +28,6 @@ TMD 将 Notepad++ 的轻量文件编辑体验、VS Code 的工作区导航，以
 - UTF-8、UTF-8 BOM、UTF-16 和 ANSI 编码识别与转换，可切换 LF、CRLF 和 CR 行尾。
 - 临时文档、打开标签、窗口位置、工作区、搜索历史和编辑设置均可恢复。
 - 自绘标题栏、亮色与深色主题、文件类型图标和可调整的编辑器外观。
-
-## 当前状态
-
-TMD 仍在持续开发中，当前主要测试平台为 Windows 10/11。Windows x64、macOS ARM64（Apple Silicon）与 Linux x64 安装包均由 GitHub Actions 自动构建，发布版本从 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 获取。
 
 ## 本地开发
 

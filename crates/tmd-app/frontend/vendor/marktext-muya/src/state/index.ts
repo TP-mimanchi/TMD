@@ -52,6 +52,12 @@ class JSONState {
 
     private _state: TState[] = [];
 
+    private _revision = 0;
+
+    get revision() {
+        return this._revision;
+    }
+
     constructor(private _muya: Muya, stateOrMarkdown: TState[] | string) {
         this.setContent(stateOrMarkdown);
     }
@@ -63,6 +69,7 @@ class JSONState {
         if (op === null)
             return;
         this._state = asState(json1.type.apply(asDoc(this._state), op));
+        this._revision++;
     }
 
     setContent(content: TState[] | string) {
@@ -84,10 +91,12 @@ class JSONState {
 
     private _setState(state: TState[]) {
         this._state = state;
+        this._revision++;
     }
 
     private _setMarkdown(markdown: string) {
         this._state = this.markdownToState(markdown);
+        this._revision++;
     }
 
     // Parse markdown into a block-state array with the editor's current
