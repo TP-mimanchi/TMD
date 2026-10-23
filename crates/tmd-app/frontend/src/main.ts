@@ -124,6 +124,7 @@ import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import { createCoalescedUpdate } from "./updateScheduler";
 import { createDocumentLoadQueue } from "./documentLoading";
 import { searchPreview } from "./searchPreview";
+import { folderIconSvg, folderIconState, animateFolderIcon } from "./folderIcon";
 import "monaco-editor/esm/vs/basic-languages/monaco.contribution";
 import "monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations";
 import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
@@ -1090,12 +1091,7 @@ function treeEntryIcon(item: TreeItemDto, expanded: boolean, extraClassName = ""
   const extraClass = extraClassName ? ` ${extraClassName}` : "";
   if (icon.shape === "folder") {
     return `<span class="tree-file-icon-svg folder${expanded ? " is-open" : ""}${extraClass}" style="${style}" aria-hidden="true">
-      <svg viewBox="0 0 24 24" focusable="false">
-        <path d="M2.75 7.8c0-1.1.9-2 2-2h5.15l1.72 1.9h7.63c1.1 0 2 .9 2 2v7.9c0 1.1-.9 2-2 2H4.75c-1.1 0-2-.9-2-2V7.8Z" fill="var(--tree-icon-tone)" />
-        <path d="M2.75 9.7c0-1.1.9-2 2-2h14.5c1.1 0 2 .9 2 2v1.05H2.75V9.7Z" fill="var(--tree-icon-accent)" opacity="0.86" />
-        <path d="M2.75 10.45h18.5l-1.45 7.45a2 2 0 0 1-1.96 1.62H4.28a2 2 0 0 1-1.97-2.35l.44-6.72Z" fill="var(--tree-icon-tone)" />
-        <path d="M2.75 10.45h18.5l-1.45 7.45a2 2 0 0 1-1.96 1.62H4.28a2 2 0 0 1-1.97-2.35l.44-6.72Z" fill="var(--tree-icon-accent)" opacity="${expanded ? "0.42" : "0.22"}" />
-      </svg>
+      ${folderIconSvg}
     </span>`;
   }
   return `<span class="tree-file-icon-svg file ${icon.shape}${extraClass}" style="${style}" aria-hidden="true">
@@ -5785,6 +5781,8 @@ function visibleTreeItems(items: TreeItemDto[]) {
 
 function toggleDirectoryCollapse(path: string) {
   if (!path) return;
+  const painted = folderIconState($("tree"), path);
+  const previous = painted ? { transform: painted.style.transform, opacity: painted.style.opacity } : null;
   if (state.collapsedDirs.has(path)) {
     state.workspace?.items.forEach((item) => {
       if (item.isDir && item.path !== path && pathMatchesTarget(item.path, path, true)) {
@@ -5796,6 +5794,7 @@ function toggleDirectoryCollapse(path: string) {
     state.collapsedDirs.add(path);
   }
   renderWorkspaceTree();
+  animateFolderIcon($("tree"), path, previous);
   scheduleSessionSave();
 }
 

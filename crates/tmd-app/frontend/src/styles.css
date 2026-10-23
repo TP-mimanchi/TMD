@@ -1194,6 +1194,19 @@ select:focus-visible {
 .tree-file-icon-svg.folder svg {
   width: 21px;
   height: 21px;
+  overflow: visible;
+}
+
+.tree-file-icon-svg.folder .folder-front {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: perspective(80px) rotateX(0deg) skewX(0deg);
+  opacity: 0.35;
+}
+
+.tree-file-icon-svg.folder.is-open .folder-front {
+  transform: perspective(80px) rotateX(-35deg) skewX(-8deg);
+  opacity: 0.35;
 }
 
 .tree-file-icon-label {

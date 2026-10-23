@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="UTF-8">
+<title>文件夹图标交互预览</title>
+<link rel="stylesheet" href="/src/styles.css">
+<style>
+  body { display: block; padding: 40px; overflow: auto; background: #f8fafc; color: #172033; font: 14px system-ui; }
+  main { max-width: 500px; margin: auto; }
+  #demo { display: grid; gap: 16px; margin-top: 24px; }
+  #demo button { display: flex; align-items: center; gap: 16px; padding: 16px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; }
+  #demo .tree-file-icon-svg { width: 40px; height: 40px; }
+  #demo svg { width: 40px; height: 40px; }
+</style>
+<main><h1>文件夹图标</h1><p>点击文件夹，查看打开与合上动画。</p><div id="demo"></div></main>
+<script type="module">
+  import { folderIconSvg, folderIconState, animateFolderIcon } from '/src/folderIcon.ts';
+  const tree = document.querySelector('#demo');
+  const expanded = new Set();
+  function render() {
+    tree.innerHTML = [['docs', '#f4b940'], ['src', '#2563eb']].map(([name, color]) => `
+      <button class="tree-item dir" data-path="${name}" aria-expanded="${expanded.has(name)}">
+        <span class="tree-file-icon-svg folder ${expanded.has(name) ? 'is-open' : ''}" style="--tree-icon-accent:${color}" aria-hidden="true">${folderIconSvg}</span>
+        <span>${name} · ${expanded.has(name) ? '已展开' : '已收起'}</span>
+      </button>`).join('');
+  }
+  tree.addEventListener('click', (event) => {
+    const path = event.target.closest('button')?.dataset.path;
+    if (!path) return;
+    const painted = folderIconState(tree, path);
+    const previous = painted ? { transform: painted.style.transform, opacity: painted.style.opacity } : null;
+    if (expanded.has(path)) expanded.delete(path); else expanded.add(path);
+    render();
+    animateFolderIcon(tree, path, previous);
+  });
+  render();
+</script>
+</html>
