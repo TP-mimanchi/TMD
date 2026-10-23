@@ -1,166 +1,184 @@
 <p align="center">
-  <img src="crates/tmd-app/icons/128x128.png" width="96" height="96" alt="TMD icon" />
+  <img src="crates/tmd-app/icons/128x128.png" width="96" height="96" alt="TMD" />
 </p>
 
 <h1 align="center">TMD</h1>
 
-<p align="center">轻量、快速、面向文本与 Markdown 的桌面编辑器。</p>
+<p align="center"><strong>一款为程序员而生的轻量级文本 & Markdown 桌面编辑器</strong></p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3b82f6.svg" alt="MIT License" /></a>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2563eb.svg" alt="Windows, macOS and Linux" />
-  <img src="https://img.shields.io/badge/Tauri-2-24c8db.svg" alt="Tauri 2" />
-  <img src="https://img.shields.io/badge/Monaco-0.53-007acc.svg" alt="Monaco Editor" />
+  <img src="https://img.shields.io/github/stars/TP-mimanchi/TMD?style=social" alt="GitHub stars" />
+  <img src="https://img.shields.io/github/forks/TP-mimanchi/TMD?style=social" alt="GitHub forks" />
 </p>
 
-TMD 是一个的轻量文件编辑工具，主要特点是UI设计符合程序员审美，操作流畅，优化内存，打开迅速，使用Rust开发。
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-3b82f6.svg" alt="license: MIT" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2563eb.svg" alt="platforms" />
+  <img src="https://img.shields.io/badge/Tauri-2.x-24c8db.svg" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/Monaco-Editor-007acc.svg" alt="Monaco Editor" />
+  <img src="https://img.shields.io/badge/built%20with-Rust-f97316.svg" alt="built with Rust" />
+  <img src="https://img.shields.io/badge/release-GitHub%20Actions-2088ff.svg" alt="GitHub Actions release" />
+</p>
 
-![TMD Markdown workspace](docs/screenshots/tmd-markdown.png)
+<p align="center">
+  <a href="#-features">功能特性</a> ·
+  <a href="#-downloads">下载安装</a> ·
+  <a href="#-development">本地开发</a> ·
+  <a href="#-project-structure">项目结构</a> ·
+  <a href="#-credits">开源与致谢</a>
+</p>
 
-## 主要功能
+---
 
-- 单文件与工作区模式，可直接打开文件或目录，也支持拖放文件。
-- Monaco 编辑内核，提供多语言语法高亮、代码提示、折叠、括号匹配、多光标和大文件优化。
-- VS Code 与 Notepad++ 两套快捷键方案，支持按命令分组查看和自定义。
-- Markdown 默认即时编辑，并可切换源码或分屏预览模式。
-- Markdown 支持大纲、表格、任务列表、数学公式、网络图片，以及 Mermaid、PlantUML 和 Vega 图表。
-- 当前文件、打开文档与工作区搜索，支持普通、扩展和正则表达式模式及替换预览。
-- UTF-8、UTF-8 BOM、UTF-16 和 ANSI 编码识别与转换，可切换 LF、CRLF 和 CR 行尾。
-- 临时文档、打开标签、窗口位置、工作区、搜索历史和编辑设置均可恢复。
-- 自绘标题栏、亮色与深色主题、文件类型图标和可调整的编辑器外观。
+<p align="center">
+  <img src="docs/screenshots/tmd-markdown.png" alt="TMD Markdown workspace" />
+</p>
 
-## 本地开发
+## ✨ Features
 
-需要以下环境：
+TMD 基于 **Tauri 2 + Rust** 构建，后端核心用 Rust 编写（内存映射、并行文件遍历），前端使用 **Monaco**（VS Code 同款编辑内核）与 **Muya**（MarkText 的 WYSIWYG Markdown 引擎）。界面遵循程序员审美：自绘标题栏、紧凑工具栏、低饱和配色。
 
-- Rust stable
-- Node.js 20.19 或更高版本
-- npm 8 或更高版本
-- Windows WebView2 Runtime（macOS 与 Linux 无需额外安装）
+**📁 文件与工作区**
+- 单文件 / 文件夹（工作区）双模式，支持拖放打开、多标签编辑、最近打开
+- 工作区目录树、文件重命名、标签批量管理（关闭其他 / 右侧 / 已保存）
 
-安装前端依赖：
+**📝 编辑内核**
+- Monaco 内核：多语言语法高亮、JSON 智能提示、多光标、代码折叠、括号匹配、缩略图（Minimap）
+- 大文件 / 长文档延迟初始化，打开迅速、内存友好
+- 文档格式化（JSON / SQL，`Shift+Alt+F`）、大小写转换、跳转行（`Ctrl+G`）、命令面板（`Ctrl+P`）
 
-```powershell
-cd crates\tmd-app\frontend
-npm install
-```
+**📄 Markdown**
+- 即时编辑（WYSIWYG）/ 分屏预览 / 源码三种模式，可拖动调整分屏宽度
+- 大纲导航、表格、任务列表、数学公式、网络图片
+- Mermaid、PlantUML、Vega 图表渲染
 
-启动桌面开发模式：
+**🔍 查找与替换**
+- 当前文件悬浮查找卡：大小写 / 全词 / 正则、搜索历史、逐个或全部替换
+- 全文档与工作区搜索替换（`Ctrl+Shift+F` / `Ctrl+Shift+H`），右侧搜索面板带匹配预览
 
-```powershell
-cd crates\tmd-app
-cargo tauri dev
-```
+**🧬 编码与行尾**
+- UTF-8 / UTF-8 BOM / UTF-16 / ANSI 编码自动识别与转换
+- LF / CRLF / CR 行尾切换
 
-> Tauri CLI 会自动在 `crates/tmd-app/frontend` 目录执行 `npm run dev` / `npm run build`，因此在仓库任意目录调用 `cargo tauri` 均可。
+**⌨️ 快捷键**
+- 内置 VS Code / Notepad++ / 跟随模式三套键位方案
+- 每条命令可单独改键，支持快捷键方案的导入 / 导出
 
-构建安装包：
+**🎨 外观**
+- 「晨光」浅色 /「夜航」深色双主题，一键切换
+- 界面字体与编辑器字体独立配置（预设 + 自定义），字号、页面宽度可调
+- 自动换行、空白符显示、光标平滑动画
 
-```powershell
-cd crates\tmd-app
-cargo tauri build
-```
+**⚙️ 系统集成**
+- 完整状态恢复：打开的标签、窗口位置、工作区、搜索历史、临时文档、编辑设置
+- Windows：右键「以 TMD 打开」、默认应用候选（应用内开关，安装器不改动系统关联）
+- 内置自动更新：后台下载新版，一键安装
 
-产物位于 `target\release\bundle`。
+## 📦 Downloads
 
-> `tauri.conf.json` 中开启了 `createUpdaterArtifacts`（自动更新），构建时需提供更新签名密钥，否则会报 `no Tauri private key provided`。本地构建可先生成一对密钥：
->
-> ```bash
-> cargo tauri signer generate -w ~/.tauri/tmd.key
-> export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/tmd.key"   # Windows: $env:TAURI_SIGNING_PRIVATE_KEY
-> ```
+从 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 下载最新稳定版：
 
-## 构建 macOS 应用
+| 平台 | 架构 | 文件 |
+| --- | --- | --- |
+| Windows | x64 | `TMD_Setup_<version>_x64.exe` |
+| macOS | Apple Silicon（M1 ~ M4） | `TMD_<version>_aarch64.dmg` |
+| Linux | x64 | `TMD_<version>_amd64.AppImage` / `.deb` |
 
-Tauri 不支持在 Windows 上交叉编译 macOS 应用，macOS 版本必须在 Mac 环境构建。有两种方式：
+### 🪟 Windows
 
-### 方式一：在 Mac 上本地构建
+双击 `.exe` 安装包按提示安装即可。安装和升级**不会**自动关联文件扩展名；如需右键「以 TMD 打开」或设为默认应用，在应用内 **设置 → 系统集成** 中开启。
 
-前置依赖（在 Mac 上安装）：
+### 🍎 macOS
+
+打开 `.dmg`，把 `TMD` 拖入「应用程序」。当前版本未做 Apple Developer ID 签名与公证，首次启动时 Gatekeeper 会拦截，任选其一绕过：
+
+- Finder 中**右键 → 打开** → 在弹窗中确认打开
+- 或终端执行：
+
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/TMD.app
+  open /Applications/TMD.app
+  ```
+
+> 仅支持 Apple Silicon 芯片（M1 ~ M4）。Intel Mac 暂无构建，可在 [Issues](https://github.com/TP-mimanchi/TMD/issues) 中提出需求。
+
+## 🛠 Development
+
+### 环境依赖
+
+- [Rust](https://rustup.rs) stable
+- [Node.js](https://nodejs.org) ≥ 20.19（含 npm ≥ 8）
+- Windows 额外需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（macOS / Linux 无需）
+
+### 启动开发模式
 
 ```bash
-# Xcode 命令行工具
-xcode-select --install
-
-# Rust stable（已有可跳过）
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# 按芯片类型添加目标
-rustup target add aarch64-apple-darwin   # Apple Silicon（M1~M4）
-# rustup target add x86_64-apple-darwin  # Intel Mac
-```
-
-并安装 Node.js 20.19 或更高版本。然后：
-
-```bash
-git clone <仓库地址> TMD && cd TMD
-
 cd crates/tmd-app/frontend
 npm install
 
-# 更新签名密钥（见“本地开发”一节说明，已设置可跳过）
-cargo tauri signer generate -w ~/.tauri/tmd.key
-export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/tmd.key"
-
 cd crates/tmd-app
-# Apple Silicon
-cargo tauri build --target aarch64-apple-darwin --features custom-protocol
-# Intel Mac
-# cargo tauri build --target x86_64-apple-darwin --features custom-protocol
+cargo tauri dev
 ```
 
-构建产物位于 `target/aarch64-apple-darwin/release/bundle`：
+> Tauri CLI 会自动在 `crates/tmd-app/frontend` 下执行 `npm run dev` / `npm run build`，因此在仓库任意目录调用 `cargo tauri` 均可。
 
-- `macos/TMD.app`：应用本体，可直接拖入「应用程序」
-- `dmg/TMD_<版本>_aarch64.dmg`：磁盘镜像安装包
-- `macos/TMD.app.tar.gz` 与 `.sig`：自动更新产物
+### 构建安装包
 
-`TAURI_SIGNING_PRIVATE_KEY` 只负责自动更新产物的完整性签名，不等同于 Apple 的 Developer ID 签名和公证。未经 Apple 签名、公证的下载包仍可能被 Gatekeeper 拦截；正式分发应按 [Tauri macOS 签名文档](https://v2.tauri.app/distribute/sign/macos/)配置 Apple 凭据。
+```bash
+cd crates/tmd-app
+cargo tauri build
+```
 
-macOS 使用 `tauri.macos.conf.json` 启用原生红黄绿窗口按钮，前端为系统按钮留出左侧区域。主窗口启动即显示，应用就绪和点击 Dock 图标时会恢复、显示并聚焦窗口；显示窗口不再依赖网页加载完成。
+产物位于 `target/release/bundle`。`tauri.conf.json` 开启了 `createUpdaterArtifacts`（自动更新），构建时必须提供更新签名密钥，否则报 `no Tauri private key provided`：
 
-调试阶段也可以直接在 Mac 上运行 `cargo tauri dev`，流程与 Windows 一致。
+```bash
+cargo tauri signer generate -w ~/.tauri/tmd.key   # 两次提示直接回车，即无密码密钥
+export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/tmd.key"
+# Windows PowerShell: $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content $HOME\tmd.key -Raw)
+```
 
-### 方式二：GitHub Actions 自动构建（无需本地 Mac）
+> 该密钥只用于自动更新产物的完整性签名，**不等于** Apple Developer ID 签名 / 公证。正式对外分发 macOS 版本请按 [Tauri 签名文档](https://v2.tauri.app/distribute/sign/macos/)配置 Apple 凭据。
 
-`.github/workflows/release.yml` 已配置 Windows / macOS（macos-26 runner，ARM64）/ Linux 三平台构建矩阵，生成更新签名并发布（依赖仓库 secret `TAURI_SIGNING_PRIVATE_KEY`）。Apple 应用签名与公证需要另外配置，不会由这个更新密钥自动完成。
+### 构建 macOS 应用（无本地 Mac）
 
-macOS 构建后会启动实际 `.app`，确认有持续可见的普通窗口，并等待页面完成启动后才继续收集发布产物。如果进程仅显示 Dock 图标、窗口没有出现，或页面始终停在启动状态，检查会失败。诊断日志保存在 Actions 的 `macos-window-smoke` 附件中，不混入发布安装包。
+Tauri 不支持在 Windows 上交叉编译 macOS 应用。仓库已配置 [GitHub Actions 发布流水线](.github/workflows/release.yml)（Windows / macOS ARM64 / Linux 三平台矩阵），两种使用方式：
 
-1. 确认 `crates/tmd-app/tauri.conf.json` 中的 `version` 是本次发布版本（当前 `0.1.0`）。
-2. 推送对应 tag 触发发布流水线：
+1. **本地 Mac 构建**：安装 Xcode Command Line Tools、Rust、Node.js 后，在 Mac 上执行上面的 `npm install` + `cargo tauri build`（Apple Silicon 加 `--target aarch64-apple-darwin --features custom-protocol`）。
+2. **CI 自动构建**：把 `tauri.conf.json` 的 `version` 升到目标版本（注意 `tmd-app` / `tmd-core` / `package.json` 多处版本需一致），推送 tag 触发：
 
    ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v<version>
+   git push origin v<version>
    ```
 
-3. 流水线完成后，到 [GitHub Releases](https://github.com/TP-mimanchi/TMD/releases) 下载 `TMD_0.1.0_aarch64.dmg`，在 Mac 上安装即可。
+   流水线完成后到 [Releases](https://github.com/TP-mimanchi/TMD/releases) 下载产物。发布依赖仓库 secret `TAURI_SIGNING_PRIVATE_KEY`。
 
-仅想构建而不发布 Release 时，可以在 GitHub 仓库的 Actions 页面手动运行 `Release` workflow，产物在该 workflow 的 Artifacts 中下载（此模式不会创建 GitHub Release）。
+### 验证
 
-## 验证
-
-```powershell
+```bash
 cargo test --workspace
 
-cd crates\tmd-app\frontend
+cd crates/tmd-app/frontend
 npm run test:keybindings
 npm run build
 ```
 
-## 项目结构
+## 📂 Project Structure
 
 ```text
-crates/tmd-app/           Tauri 桌面应用与前端界面
-crates/tmd-core/          文档、编码、搜索和文件系统核心
-crates/tmd-app/frontend/  Monaco 与 Markdown 编辑体验
-docs/                       产品、架构和界面资料
-scripts/                    上游同步及开发脚本
+crates/tmd-app/            Tauri 桌面应用（窗口、命令、系统集成、更新）
+crates/tmd-app/frontend/   前端界面（Monaco + Muya + 设置/搜索/主题）
+crates/tmd-core/           Rust 核心（文档编码、文件系统、全文搜索）
+docs/                      产品、架构与性能设计文档
+.github/workflows/         GitHub Actions 发布流水线
 ```
 
-## 开源与致谢
+## 🤝 Credits
 
-TMD 使用 [MIT License](LICENSE) 开源。
+TMD 以 [MIT License](LICENSE) 开源。
 
-Markdown 即时编辑能力基于 [MarkText](https://github.com/marktext/marktext) 的 Muya 和[Notra](https://github.com/zhangzhibang/Notra)编辑器演进，固定的上游版本和许可证保留在 `crates/tmd-app/frontend/vendor/marktext-muya`。代码编辑能力由 [Monaco Editor](https://github.com/microsoft/monaco-editor) 提供。各第三方依赖继续遵循其各自许可证。
+Markdown 即时编辑能力基于 [MarkText](https://github.com/marktext/marktext) 的 Muya 与 [Notra](https://github.com/zhangzhibang/Notra) 编辑器演进，固定上游版本及许可证保留在 `crates/tmd-app/frontend/vendor/marktext-muya`。代码编辑能力由 [Monaco Editor](https://github.com/microsoft/monaco-editor) 提供，应用框架为 [Tauri](https://github.com/tauri-apps/tauri)。其余第三方依赖各自遵循其许可证。
+
+---
+
+<p align="center"><sub>MIT © 2026 TMD contributors</sub></p>
