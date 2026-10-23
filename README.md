@@ -108,9 +108,9 @@ export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/tmd.key"
 
 cd crates/tmd-app
 # Apple Silicon
-cargo tauri build --target aarch64-apple-darwin
+cargo tauri build --target aarch64-apple-darwin --features custom-protocol
 # Intel Mac
-# cargo tauri build --target x86_64-apple-darwin
+# cargo tauri build --target x86_64-apple-darwin --features custom-protocol
 ```
 
 构建产物位于 `target/aarch64-apple-darwin/release/bundle`：
@@ -119,13 +119,17 @@ cargo tauri build --target aarch64-apple-darwin
 - `dmg/TMD_<版本>_aarch64.dmg`：磁盘镜像安装包
 - `macos/TMD.app.tar.gz` 与 `.sig`：自动更新产物
 
-其他 Mac 首次打开未经公证的 `TMD.app` 会被 Gatekeeper 拦截，右键选择「打开」或执行 `xattr -dr com.apple.quarantine /Applications/TMD.app` 即可。正式分发建议配置 Apple 开发者证书签名与公证。
+`TAURI_SIGNING_PRIVATE_KEY` 只负责自动更新产物的完整性签名，不等同于 Apple 的 Developer ID 签名和公证。未经 Apple 签名、公证的下载包仍可能被 Gatekeeper 拦截；正式分发应按 [Tauri macOS 签名文档](https://v2.tauri.app/distribute/sign/macos/)配置 Apple 凭据。
+
+macOS 使用 `tauri.macos.conf.json` 启用原生红黄绿窗口按钮，前端为系统按钮留出左侧区域。主窗口启动即显示，应用就绪和点击 Dock 图标时会恢复、显示并聚焦窗口；显示窗口不再依赖网页加载完成。
 
 调试阶段也可以直接在 Mac 上运行 `cargo tauri dev`，流程与 Windows 一致。
 
 ### 方式二：GitHub Actions 自动构建（无需本地 Mac）
 
-`.github/workflows/release.yml` 已配置 Windows / macOS（macos-26 runner，ARM64）/ Linux 三平台构建矩阵，自动签名并发布（依赖仓库 secret `TAURI_SIGNING_PRIVATE_KEY`）。
+`.github/workflows/release.yml` 已配置 Windows / macOS（macos-26 runner，ARM64）/ Linux 三平台构建矩阵，生成更新签名并发布（依赖仓库 secret `TAURI_SIGNING_PRIVATE_KEY`）。Apple 应用签名与公证需要另外配置，不会由这个更新密钥自动完成。
+
+macOS 构建后会启动实际 `.app`，确认有持续可见的普通窗口，并等待页面完成启动后才继续收集发布产物。如果进程仅显示 Dock 图标、窗口没有出现，或页面始终停在启动状态，检查会失败。诊断日志保存在 Actions 的 `macos-window-smoke` 附件中，不混入发布安装包。
 
 1. 确认 `crates/tmd-app/tauri.conf.json` 中的 `version` 是本次发布版本（当前 `0.1.0`）。
 2. 推送对应 tag 触发发布流水线：

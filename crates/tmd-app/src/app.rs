@@ -6,9 +6,9 @@ use std::process::Command;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tmd_core::{
-    apply_directory_replace, document::EDITABLE_FILE_LIMIT_BYTES, preview_directory_replace,
-    search_directory, DirectorySearchReport, Document, EncodingKind, FileReplacePreview,
-    LineEnding, ReplaceOutcome, SearchMode, SearchOptions, TextMatch,
+    DirectorySearchReport, Document, EncodingKind, FileReplacePreview, LineEnding, ReplaceOutcome,
+    SearchMode, SearchOptions, TextMatch, apply_directory_replace,
+    document::EDITABLE_FILE_LIMIT_BYTES, preview_directory_replace, search_directory,
 };
 
 use crate::session_store::SessionStore;
@@ -378,6 +378,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            frontend_ready,
             load_session,
             save_session,
             open_file_dialog,
@@ -407,8 +408,40 @@ pub fn run() {
             supported_languages,
             supported_encodings,
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run TMD");
+        .build(tauri::generate_context!())
+        .expect("failed to build TMD")
+        .run(|_app, _event| {
+            #[cfg(target_os = "macos")]
+            if matches!(
+                _event,
+                tauri::RunEvent::Ready | tauri::RunEvent::Reopen { .. }
+            ) {
+                reveal_main_window(_app);
+            }
+        });
+}
+
+#[cfg(target_os = "macos")]
+fn reveal_main_window(app: &tauri::AppHandle) {
+    // A hidden WKWebView must not gate the only path to showing the app.
+    // Reopen also brings the existing window back when its Dock icon is clicked.
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(error) = window.show() {
+            eprintln!("显示主窗口失败：{error}");
+        }
+        if let Err(error) = window.unminimize() {
+            eprintln!("恢复主窗口失败：{error}");
+        }
+        if let Err(error) = window.set_focus() {
+            eprintln!("聚焦主窗口失败：{error}");
+        }
+    }
+}
+
+#[tauri::command]
+fn frontend_ready() {
+    // Local startup diagnostics, also used by the packaged macOS smoke check.
+    eprintln!("[TMD] frontend-ready main");
 }
 
 #[tauri::command]
@@ -968,6 +1001,25 @@ fn rename_file_in_place(path: &Path, requested_name: &str) -> Result<PathBuf, St
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn macos_override_deserializes_with_tauri_window_schema() {
+        let mut base: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let mac: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.macos.conf.json")).unwrap();
+        let common_window = base["app"]["windows"][0].clone();
+        // JSON merge-patch replaces arrays, so the override must retain sizing.
+        base["app"]["windows"] = mac["app"]["windows"].clone();
+        let config: tauri::Config = serde_json::from_value(base).unwrap();
+        let window = &config.app.windows[0];
+        assert_eq!(window.label, "main");
+        assert!(window.visible && window.decorations && window.hidden_title);
+        assert_eq!(format!("{:?}", window.title_bar_style), "Overlay");
+        assert!(window.traffic_light_position.is_some());
+        assert_eq!(window.width, common_window["width"].as_f64().unwrap());
+        assert_eq!(window.height, common_window["height"].as_f64().unwrap());
+    }
+
     #[test]
     fn search_dto_uses_utf16_columns_and_preview_offsets() {
         let hit = tmd_core::search::find_all("😀目标", "目标", &Default::default())

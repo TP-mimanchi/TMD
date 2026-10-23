@@ -477,6 +477,15 @@ select:focus-visible {
   margin-left: 2px;
 }
 
+.platform-macos .titlebar {
+  padding-left: 92px;
+  padding-right: 12px;
+}
+
+.platform-macos .window-controls {
+  display: none;
+}
+
 .window-button {
   width: 44px;
   height: 100%;
@@ -3163,6 +3172,21 @@ tbody tr.result-active {
 .active-search-highlight {
   background: color-mix(in srgb, var(--primary) 20%, transparent);
   outline: 1px solid var(--primary);
+}
+
+/* Keep document content out of the settings surface without unloading the editor. */
+#app.settings-open > .workspace,
+#app.settings-open > .toolbar,
+#app.settings-open > .tabs,
+#app.settings-open > .statusbar,
+#app.settings-open > .find-popover {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Muya mounts these outside #app; cover tools created after settings opens too. */
+body.settings-open > :is(.mu-float-wrapper, .mu-front-button-wrapper, .mu-transformer, .mu-line-ghost, .mu-shadow) {
+  display: none !important;
 }
 
 .settings-page {

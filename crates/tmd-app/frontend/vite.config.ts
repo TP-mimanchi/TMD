@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "./",
   clearScreen: false,
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   server: {
     host: "127.0.0.1",
     port: 1420,

@@ -125,6 +125,7 @@ import { createCoalescedUpdate } from "./updateScheduler";
 import { createDocumentLoadQueue } from "./documentLoading";
 import { searchPreview } from "./searchPreview";
 import { folderIconSvg, folderIconState, animateFolderIcon } from "./folderIcon";
+import { usesNativeMacWindowControls } from "./windowPlatform";
 import "monaco-editor/esm/vs/basic-languages/monaco.contribution";
 import "monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations";
 import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
@@ -714,7 +715,7 @@ const MIN_WORKSPACE_EDITOR_WIDTH = 320;
 const EXPLORER_RESIZE_WIDTH = 6;
 
 const SHELL_FONT_STACKS: Record<ShellFontPreset, string> = {
-  system: '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif',
+  system: '-apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif',
   segoe: '"Segoe UI Variable Text", "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif',
   yahei: '"Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif',
   dengxian: '"DengXian", "Microsoft YaHei UI", "Segoe UI", sans-serif',
@@ -936,6 +937,8 @@ type TextInputOptions = {
 };
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const nativeMacWindow = usesNativeMacWindowControls(import.meta.env.TAURI_ENV_PLATFORM, navigator.platform);
+document.documentElement.classList.toggle("platform-macos", nativeMacWindow);
 const appWindow = getCurrentWindow();
 const lucideIcons: Record<string, IconNode> = {
   AlignCenter,
@@ -1291,6 +1294,7 @@ function markAppReady() {
       requestEditorLayout();
       document.body.classList.remove("booting");
       $("bootSplash")?.remove();
+      void invoke("frontend_ready").catch((error) => log(`启动状态报告失败：${String(error)}`));
     });
   });
 }
@@ -2433,9 +2437,12 @@ function bindCustomFontInput(id: string, target: "shell" | "editor") {
 
 function openSettingsPage() {
   closeMenus();
+  markdownEditor?.hideFloatTools();
   $("commandPalette").classList.add("hidden");
   $("settingsPage").classList.remove("hidden");
   $("app").classList.add("settings-open");
+  document.body.classList.add("settings-open");
+  $("workspace").inert = true;
   $("settingsButton").classList.add("active");
   renderSettingsMenu();
   void refreshSystemIntegrationStatus();
@@ -2444,6 +2451,8 @@ function openSettingsPage() {
 function closeSettingsPage() {
   $("settingsPage").classList.add("hidden");
   $("app").classList.remove("settings-open");
+  document.body.classList.remove("settings-open");
+  $("workspace").inert = false;
   $("settingsButton").classList.remove("active");
 }
 
@@ -2876,6 +2885,9 @@ function bindWindowControls() {
     event.preventDefault();
     toggleTitlebarMaximize();
   });
+  // macOS controls are real AppKit buttons above the webview. Closing still
+  // enters bindWindowCloseGuard through Tauri's native close-request event.
+  if (nativeMacWindow) return;
   $("windowMinimize").addEventListener("click", () => void appWindow.minimize());
   $("windowMaximize").addEventListener("click", () => void appWindow.toggleMaximize());
   $("windowClose").addEventListener("click", () => void requestWindowClose());

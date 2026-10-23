@@ -84,6 +84,10 @@ jobs:
         working-directory: crates/tmd-app/frontend
         run: npm ci
 
+      - name: Verify platform window configuration
+        working-directory: crates/tmd-app/frontend
+        run: npm run test:platform
+
       - name: Validate updater signing key
         shell: bash
         env:
@@ -156,6 +160,33 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: cargo tauri build ${{ matrix.build_args }} --features custom-protocol
 
+      - name: Verify macOS app opens a window
+        if: runner.os == 'macOS'
+        timeout-minutes: 3
+        shell: bash
+        env:
+          BUNDLE_ROOT: ${{ matrix.bundle_root }}
+        run: |
+          set -euo pipefail
+          mkdir -p macos-window-smoke
+          exec > >(tee macos-window-smoke/verification.log) 2>&1
+          shopt -s nullglob
+          apps=("$BUNDLE_ROOT"/macos/*.app)
+          if [[ ${#apps[@]} -ne 1 ]]; then
+            echo "::error::Expected exactly one macOS .app in $BUNDLE_ROOT/macos; found ${#apps[@]}"
+            exit 1
+          fi
+          swiftc scripts/verify-macos-window.swift -o "$RUNNER_TEMP/verify-macos-window"
+          "$RUNNER_TEMP/verify-macos-window" "${apps[0]}" "$PWD/macos-window-smoke"
+
+      - name: Upload macOS window smoke diagnostics
+        if: always() && runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-window-smoke
+          path: macos-window-smoke/
+          if-no-files-found: warn
+
       - name: Collect release assets
         shell: bash
         run: |
@@ -190,6 +221,7 @@ jobs:
       - name: Download platform artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: tmd-*
           path: downloaded-assets
           merge-multiple: true
 
