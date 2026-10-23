@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const source = fs.readFileSync(new URL('../src/searchPreview.ts', import.meta.url), 'utf8');
+const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
+const { searchPreview } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const line = '😀中'.repeat(1000) + 'target' + 'x'.repeat(1000);
+const start = line.indexOf('target');
+const preview = searchPreview(line, start, start + 6);
+assert.ok(preview.lineText.length <= 240);
+assert.equal(preview.lineText.slice(preview.previewStart, preview.previewEnd), 'target');
+assert.equal(preview.lineText.isWellFormed(), true, 'Truncation must not split surrogate pairs');
+assert.deepEqual(searchPreview('abc', 1, 2), { lineText: 'abc', previewStart: 1, previewEnd: 2 });
+
+const main = fs.readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8');
+const routine = main.slice(main.indexOf('function highlightMatchLine('), main.indexOf('function log('));
+const renderer = ts.transpileModule(`${routine}\nexport { highlightMatchLine };\nconst escapeHtml = (s) => s.replaceAll('<', '&lt;');`, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
+const { highlightMatchLine } = await import(`data:text/javascript;base64,${Buffer.from(renderer).toString('base64')}`);
+assert.equal(highlightMatchLine({ column: 4, lineText: 'abc', matchedText: '\n' + 'x'.repeat(4000), previewStart: 3, previewEnd: 3 }), 'abc<span class="match-mark"></span>', 'Explicitly clipped matches must not restore the full match into the preview');
+console.log('Search preview: bounded UTF-16 context, Unicode boundaries and clipped highlights passed.');

@@ -468,10 +468,10 @@ export class MarkdownEditorBridge {
   }
 
   getMarkdown() {
+    // flush synchronously emits json-change for pending edits. That listener
+    // updates the snapshot; serializing again here clones the entire state twice.
     this.muya.flush();
-    const markdown = normalizeMarkdownForEngine(this.muya.getMarkdown());
-    this.markdown = markdown;
-    return markdown;
+    return this.markdown;
   }
 
   hasUnsynchronizedChanges() {

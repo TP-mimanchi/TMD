@@ -57,8 +57,11 @@ pub struct TextMatch {
     pub range: MatchRange,
     pub line: usize,
     pub column: usize,
+    pub utf16_column: usize,
     pub matched_text: String,
     pub line_text: String,
+    pub preview_match_start: usize,
+    pub preview_match_end: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -88,9 +91,10 @@ impl SearchMatcher {
         }
 
         let line_index = LineIndex::new(text);
+        let mut position = MatchPosition::default();
         ranges
             .into_iter()
-            .map(|(start, end)| line_index.match_from_range(text, start, end))
+            .map(|(start, end)| line_index.match_from_range(text, start, end, &mut position))
             .collect()
     }
 
@@ -272,6 +276,14 @@ struct LineIndex {
     starts: Vec<usize>,
 }
 
+#[derive(Default)]
+struct MatchPosition {
+    line: usize,
+    byte: usize,
+    scalars: usize,
+    utf16: usize,
+}
+
 impl LineIndex {
     fn new(text: &str) -> Self {
         let mut starts = vec![0];
@@ -283,7 +295,13 @@ impl LineIndex {
         Self { starts }
     }
 
-    fn match_from_range(&self, text: &str, start: usize, end: usize) -> TextMatch {
+    fn match_from_range(
+        &self,
+        text: &str,
+        start: usize,
+        end: usize,
+        position: &mut MatchPosition,
+    ) -> TextMatch {
         let line_idx = self
             .starts
             .partition_point(|line_start| *line_start <= start)
@@ -294,13 +312,50 @@ impl LineIndex {
             .get(line_idx + 1)
             .map(|next_line| next_line.saturating_sub(1))
             .unwrap_or(text.len());
-        let column = text[line_start..start].chars().count() + 1;
+        if position.line != line_idx {
+            *position = MatchPosition {
+                line: line_idx,
+                byte: line_start,
+                ..Default::default()
+            };
+        }
+        // Matches are ordered, so each character before a match is counted once.
+        for ch in text[position.byte..start].chars() {
+            position.scalars += 1;
+            position.utf16 += ch.len_utf16();
+        }
+        position.byte = start;
+
+        // Keep the whole match separately for replacement, but bound display work
+        // and allocation even for thousands of hits in a single minified line.
+        let short_line = text[line_start..line_end].chars().take(241).count() <= 240;
+        let preview_start = if short_line {
+            line_start
+        } else {
+            text[line_start..start]
+                .char_indices()
+                .rev()
+                .take(80)
+                .last()
+                .map(|(offset, _)| line_start + offset)
+                .unwrap_or(start)
+        };
+        let preview_end = text[preview_start..line_end]
+            .char_indices()
+            .nth(240)
+            .map(|(offset, _)| preview_start + offset)
+            .unwrap_or(line_end);
+        let visible_start = start.min(preview_end);
+        let visible_end = end.min(preview_end).min(line_end);
         TextMatch {
             range: MatchRange { start, end },
             line: line_idx + 1,
-            column,
+            column: position.scalars + 1,
+            utf16_column: position.utf16 + 1,
             matched_text: text[start..end].to_owned(),
-            line_text: text[line_start..line_end].to_owned(),
+            line_text: text[preview_start..preview_end].to_owned(),
+            preview_match_start: text[preview_start..visible_start].encode_utf16().count(),
+            preview_match_end: text[preview_start..visible_end].encode_utf16().count(),
         }
     }
 }
@@ -318,6 +373,72 @@ fn is_word_char(ch: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dense_long_line_previews_have_bounded_total_size() {
+        let text = "中😀x ".repeat(4000);
+        let hits = find_all(&text, "x", &SearchOptions::default()).unwrap();
+        assert_eq!(hits.len(), 4000);
+        assert!(hits.iter().all(|hit| hit.line_text.chars().count() <= 240));
+        assert!(hits.iter().map(|hit| hit.line_text.len()).sum::<usize>() <= 4000 * 240 * 4);
+        assert_eq!(hits.last().unwrap().column, 3999 * 4 + 3);
+    }
+
+    #[test]
+    fn unicode_positions_and_preview_offsets_use_their_respective_units() {
+        let text = format!("{}😀目标 😀目标", "中".repeat(300));
+        let hits = find_all(&text, "目标", &SearchOptions::default()).unwrap();
+        for (index, hit) in hits.iter().enumerate() {
+            assert_eq!(hit.column, 302 + index * 4);
+            assert_eq!(hit.utf16_column, 303 + index * 5);
+            let units: Vec<_> = hit.line_text.encode_utf16().collect();
+            assert_eq!(
+                String::from_utf16(&units[hit.preview_match_start..hit.preview_match_end]).unwrap(),
+                "目标"
+            );
+            assert_eq!(&text[hit.range.start..hit.range.end], "目标");
+        }
+    }
+
+    #[test]
+    fn crlf_and_multiline_matches_keep_full_replacement_ranges() {
+        let options = SearchOptions {
+            mode: SearchMode::Regex,
+            ..Default::default()
+        };
+        let text = "😀head\r\n目标\r\ntail";
+        let hits = find_all(text, "head\\r\\n目标", &options).unwrap();
+        assert_eq!(hits[0].column, 2);
+        assert_eq!(hits[0].utf16_column, 3);
+        assert_eq!(hits[0].line_text, "😀head\r");
+        assert_eq!(hits[0].preview_match_start, 2);
+        assert_eq!(hits[0].preview_match_end, 7);
+        assert_eq!(hits[0].matched_text, "head\r\n目标");
+        let out = apply_replace_all(text, "head\\r\\n目标", "new", &options).unwrap();
+        assert_eq!(out.text, "😀new\r\ntail");
+        let next = find_all(text, "目标", &SearchOptions::default()).unwrap();
+        assert_eq!(
+            (next[0].line, next[0].column, next[0].utf16_column),
+            (2, 1, 1)
+        );
+    }
+
+    #[test]
+    fn truncated_long_match_remains_complete_for_replacement() {
+        let text = format!("before{}after", "😀".repeat(1000));
+        let options = SearchOptions {
+            mode: SearchMode::Regex,
+            ..Default::default()
+        };
+        let out = apply_replace_all(&text, "😀+", "new", &options).unwrap();
+        assert_eq!(out.text, "beforenewafter");
+        assert_eq!(out.matches[0].matched_text, "😀".repeat(1000));
+        assert!(out.matches[0].line_text.chars().count() <= 240);
+        assert_eq!(
+            out.matches[0].preview_match_end,
+            out.matches[0].line_text.encode_utf16().count()
+        );
+    }
 
     #[test]
     fn literal_search_is_case_insensitive_by_default() {

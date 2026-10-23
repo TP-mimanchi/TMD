@@ -1,8 +1,3 @@
-use tmd_core::{
-    DirectorySearchReport, Document, EncodingKind, FileReplacePreview, LineEnding, ReplaceOutcome,
-    SearchMode, SearchOptions, TextMatch, apply_directory_replace,
-    document::EDITABLE_FILE_LIMIT_BYTES, preview_directory_replace, search_directory,
-};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::fs;
@@ -10,6 +5,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use tmd_core::{
+    apply_directory_replace, document::EDITABLE_FILE_LIMIT_BYTES, preview_directory_replace,
+    search_directory, DirectorySearchReport, Document, EncodingKind, FileReplacePreview,
+    LineEnding, ReplaceOutcome, SearchMode, SearchOptions, TextMatch,
+};
 
 use crate::session_store::SessionStore;
 use crate::shell_integration::ShellIntegrationStatus;
@@ -204,6 +204,8 @@ pub struct TextMatchDto {
     pub column: usize,
     pub matched_text: String,
     pub line_text: String,
+    pub preview_start: usize,
+    pub preview_end: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -353,10 +355,7 @@ pub fn run() {
         }))
         .on_page_load(|window, payload| {
             // 窗口初始隐藏（show: false），页面加载完成后再显示，避免启动时先闪现空白窗口
-            if matches!(
-                payload.event(),
-                tauri::webview::PageLoadEvent::Finished
-            ) {
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 let _ = window.show();
             }
         })
@@ -969,6 +968,19 @@ fn rename_file_in_place(path: &Path, requested_name: &str) -> Result<PathBuf, St
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn search_dto_uses_utf16_columns_and_preview_offsets() {
+        let hit = tmd_core::search::find_all("😀目标", "目标", &Default::default())
+            .unwrap()
+            .remove(0);
+        let dto = super::match_to_dto(hit);
+        assert_eq!(dto.column, 3);
+        assert_eq!((dto.preview_start, dto.preview_end), (2, 4));
+        let json = serde_json::to_value(dto).unwrap();
+        assert_eq!(json["previewStart"], 2);
+        assert_eq!(json["previewEnd"], 4);
+    }
+
     use super::rename_file_in_place;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1122,9 +1134,11 @@ fn match_to_dto(value: TextMatch) -> TextMatchDto {
         start: value.range.start,
         end: value.range.end,
         line: value.line,
-        column: value.column,
+        column: value.utf16_column,
         matched_text: value.matched_text,
         line_text: value.line_text,
+        preview_start: value.preview_match_start,
+        preview_end: value.preview_match_end,
     }
 }
 

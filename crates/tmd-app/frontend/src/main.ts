@@ -122,6 +122,8 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import { createCoalescedUpdate } from "./updateScheduler";
+import { createDocumentLoadQueue } from "./documentLoading";
+import { searchPreview } from "./searchPreview";
 import "monaco-editor/esm/vs/basic-languages/monaco.contribution";
 import "monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations";
 import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
@@ -186,6 +188,8 @@ interface TextMatchDto {
   column: number;
   lineText: string;
   matchedText: string;
+  previewStart?: number;
+  previewEnd?: number;
 }
 
 interface FileHitDto {
@@ -221,6 +225,7 @@ interface OpenDocument extends DocumentDto {
   id: number;
   draftId?: string;
   skipSessionRestore?: boolean;
+  deferred?: boolean;
   origin: DocumentOrigin;
   model: monaco.editor.ITextModel;
   dirty: boolean;
@@ -230,6 +235,7 @@ interface OpenDocument extends DocumentDto {
 }
 
 interface ClosedDocumentSnapshot extends DocumentDto {
+  deferred?: boolean;
   draftId?: string;
   dirty: boolean;
   savedText: string;
@@ -870,6 +876,8 @@ let editorLayoutHeight = -1;
 let editorLayoutFrozen = false;
 let markdownPreviewTimer = 0;
 let markdownPreviewRenderVersion = 0;
+let markdownPreviewSnapshot: string | null = null;
+let markdownPreviewRequestedSnapshot: string | null = null;
 let markdownModelSyncTimer = 0;
 let currentFindTimer = 0;
 let currentFindHistoryActiveIndex = -1;
@@ -1158,6 +1166,8 @@ const outlineUpdate = createCoalescedUpdate<void>(
   (id) => window.clearTimeout(id),
   true,
 );
+
+const documentLoads = createDocumentLoadQueue();
 
 bootstrap();
 
@@ -3265,16 +3275,18 @@ function createDocument(
     dirty?: boolean;
     savedText?: string;
     origin?: DocumentOrigin;
+    deferred?: boolean;
   } = {},
 ): OpenDocument {
   const uri = monaco.Uri.parse(`tmd://model/${nextId}/${encodeURIComponent(dto.title)}`);
-  const model = monaco.editor.createModel(dto.text, dto.language || "plaintext", uri);
+  const model = monaco.editor.createModel(dto.text, options.deferred ? "plaintext" : dto.language || "plaintext", uri);
   const savedText = options.savedText ?? dto.text;
   const doc: OpenDocument = {
     ...dto,
     id: nextId++,
     draftId: dto.path ? undefined : options.draftId ?? createDraftId(),
     origin: options.origin ?? "standalone",
+    deferred: options.deferred,
     model,
     dirty: options.dirty ?? dto.text !== savedText,
     savedText,
@@ -3292,6 +3304,7 @@ function createDocument(
   );
   model.onWillDispose(() => byteSizeUpdate.cancel());
   model.onDidChangeContent(() => {
+    if (doc.deferred) return;
     const text = model.getValue();
     doc.dirty = text !== doc.savedText;
     doc.text = text;
@@ -3326,6 +3339,40 @@ function nextUntitledTitle(extension = "txt") {
   return `Untitled-${index}.${extension}`;
 }
 
+async function ensureDocumentLoaded(doc: OpenDocument): Promise<boolean> {
+  if (!doc.deferred) return state.documents.includes(doc) && !doc.model.isDisposed();
+  return documentLoads.load(doc.id, async () => {
+    while (doc.deferred) {
+      const path = doc.path;
+      if (!path || !state.documents.includes(doc) || doc.model.isDisposed()) return false;
+      try {
+        const dto = await invoke<DocumentDto>("open_path", { path });
+        if (!state.documents.includes(doc) || doc.model.isDisposed()) return false;
+        if (doc.path !== path) continue;
+        if (!doc.deferred) return true;
+        // Hydration is not an edit: suppress the model listener until the
+        // loaded metadata and saved baseline have been installed together.
+        doc.model.setValue(dto.text);
+        monaco.editor.setModelLanguage(doc.model, dto.language || "plaintext");
+        Object.assign(doc, dto, { deferred: false, dirty: false, savedText: dto.text, encodingStatus: "编码已识别" });
+        if (state.activeId === doc.id) {
+          attachEditorModel(doc);
+          renderAll();
+        }
+        return true;
+      } catch (error) {
+        if (!state.documents.includes(doc) || doc.model.isDisposed()) return false;
+        if (!doc.deferred) return true;
+        if (doc.path !== path) continue;
+        doc.readOnlyReason = "文件加载失败，重新选择标签可重试";
+        log(`加载 ${doc.title} 失败：${String(error)}`);
+        return false;
+      }
+    }
+    return state.documents.includes(doc) && !doc.model.isDisposed();
+  });
+}
+
 function activateDocument(id: number) {
   const doc = state.documents.find((item) => item.id === id);
   if (!doc) return;
@@ -3336,8 +3383,9 @@ function activateDocument(id: number) {
     previous.viewState = editor.saveViewState() ?? undefined;
   }
   state.activeId = id;
-  if (!isMarkdownLikeDocument(doc) || state.markdownEditMode !== "wysiwyg") attachEditorModel(doc);
+  if (doc.deferred || !isMarkdownLikeDocument(doc) || state.markdownEditMode !== "wysiwyg") attachEditorModel(doc);
   renderAll();
+  if (doc.deferred) void ensureDocumentLoaded(doc);
   scheduleSessionSave();
 }
 
@@ -3407,6 +3455,7 @@ async function openPath(path: string, remember = false) {
   if (existing) {
     if (remember) existing.origin = "standalone";
     activateDocument(existing.id);
+    await ensureDocumentLoaded(existing);
     if (remember) rememberRecentPath(path);
     return;
   }
@@ -3421,6 +3470,7 @@ function addOrReplaceDocument(dto: DocumentDto, origin: DocumentOrigin) {
     if (!existing.dirty) {
       existing.model.setValue(dto.text);
       Object.assign(existing, dto, { dirty: false, savedText: dto.text, encodingStatus: "编码已识别" });
+      existing.deferred = false;
     }
     if (origin === "standalone") existing.origin = "standalone";
     activateDocument(existing.id);
@@ -3444,6 +3494,7 @@ async function saveAsActive() {
 
 async function saveDocument(doc: OpenDocument, forceSaveAs: boolean) {
   if (!doc) return;
+  if (!(await ensureDocumentLoaded(doc))) return false;
   syncMarkdownModelFromEditor(doc);
   if (doc.readOnly) {
     log(`只读文档未保存：${doc.readOnlyReason ?? doc.title}`);
@@ -3597,6 +3648,7 @@ async function closeWorkspace() {
   if (isWorkspaceFindView()) setFindView("find", false);
   if (state.rightTool === "search" && !$("findPopover").classList.contains("hidden")) closeRightSidebar();
   attachEditorModel(activeDocument());
+  void ensureDocumentLoaded(activeDocument());
   renderAll();
   renderSettingsMenu();
   scheduleSessionSave();
@@ -3635,6 +3687,7 @@ async function closeDocument(id: number): Promise<boolean> {
 function rememberClosedDocument(doc: OpenDocument) {
   const text = doc.model.getValue();
   closedDocuments.unshift({
+    deferred: doc.deferred,
     title: doc.title,
     path: doc.path,
     text,
@@ -3668,6 +3721,7 @@ async function reopenClosedDocument() {
     }
   }
   const doc = createDocument(snapshot, {
+    deferred: snapshot.deferred,
     draftId: snapshot.draftId,
     dirty: snapshot.dirty,
     savedText: snapshot.savedText,
@@ -4334,6 +4388,7 @@ function removeOpenDocumentsForDeletedPath(path: string, isDir: boolean) {
     state.activeId = state.documents[0].id;
   }
   editor.setModel(activeDocument().model);
+  void ensureDocumentLoaded(activeDocument());
 }
 
 function updateCollapsedDirsForRename(oldPath: string, newPath: string) {
@@ -4348,8 +4403,9 @@ function removeCollapsedDirsForDeletedPath(path: string) {
   state.collapsedDirs = new Set([...state.collapsedDirs].filter((item) => !pathMatchesTarget(item, path, true)));
 }
 
-function setLanguage(language: string) {
+async function setLanguage(language: string) {
   const doc = activeDocument();
+  if (!(await ensureDocumentLoaded(doc))) return;
   doc.language = language;
   monaco.editor.setModelLanguage(doc.model, language);
   closeMenus();
@@ -4360,6 +4416,7 @@ function setLanguage(language: string) {
 
 async function useEncoding(encoding: EncodingLabel) {
   const doc = activeDocument();
+  if (!(await ensureDocumentLoaded(doc))) return;
   if (doc.path) {
     if (doc.dirty && !(await askConfirm({
       title: "重新解释编码",
@@ -4371,13 +4428,15 @@ async function useEncoding(encoding: EncodingLabel) {
     }))) {
       return;
     }
+    const path = doc.path;
     const reopened = await withBusy(`使用 ${encoding} 重新读取`, () =>
       invoke<DocumentDto>("reopen_path_with_encoding", {
-        request: { path: doc.path, encoding },
+        request: { path, encoding },
       }),
     );
+    if (!state.documents.includes(doc) || doc.model.isDisposed() || doc.path !== path) return;
     doc.model.setValue(reopened.text);
-    Object.assign(doc, reopened, { dirty: false, savedText: reopened.text, encodingStatus: "重新解释" });
+    Object.assign(doc, reopened, { deferred: false, dirty: false, savedText: reopened.text, encodingStatus: "重新解释" });
     monaco.editor.setModelLanguage(doc.model, reopened.language || "plaintext");
   } else {
     doc.encoding = encoding;
@@ -4389,8 +4448,9 @@ async function useEncoding(encoding: EncodingLabel) {
   log(`使用 ${encoding} 编码解释当前文档`);
 }
 
-function convertEncoding(encoding: EncodingLabel) {
+async function convertEncoding(encoding: EncodingLabel) {
   const doc = activeDocument();
+  if (!(await ensureDocumentLoaded(doc))) return;
   doc.encoding = encoding;
   doc.encodingStatus = "转换待保存";
   doc.dirty = true;
@@ -4455,7 +4515,8 @@ function findCurrent(showPanel = false, recordHistory = true) {
   log(`当前文件查找 ${total} 个命中`);
 }
 
-function findOpenDocuments() {
+async function findOpenDocuments() {
+  for (const doc of [...state.documents]) await ensureDocumentLoaded(doc);
   const query = ($("findInput") as HTMLInputElement).value;
   if (!query) {
     log("查找内容不能为空");
@@ -4463,6 +4524,7 @@ function findOpenDocuments() {
   }
   commitSearchHistory();
   const hits = state.documents
+    .filter((doc) => !doc.deferred)
     .map((doc) => ({
       path: doc.path || doc.title,
       fileName: doc.title,
@@ -4817,7 +4879,8 @@ function currentReplaceMatchIndex(matches: TextMatchDto[]) {
   return ($("wrapSearchInput") as HTMLInputElement).checked ? 0 : matches.length - 1;
 }
 
-function replaceOpenDocuments() {
+async function replaceOpenDocuments() {
+  for (const doc of [...state.documents]) await ensureDocumentLoaded(doc);
   const query = ($("findInput") as HTMLInputElement).value;
   const replacement = ($("replaceInput") as HTMLInputElement).value;
   if (!query) {
@@ -4855,7 +4918,7 @@ function replaceOpenDocuments() {
       total += edits.length;
     }
   }
-  findOpenDocuments();
+  await findOpenDocuments();
   log(`打开文档替换 ${total} 处${skipped ? `，跳过 ${skipped} 个只读文档` : ""}`);
 }
 
@@ -5004,9 +5067,11 @@ async function refreshOpenDocumentsAfterReplace(applied: ReplacePreviewDto) {
     }))) {
       continue;
     }
-    const reopened = await withBusy(`重新载入 ${doc.title}`, () => invoke<DocumentDto>("open_path", { path: doc.path }));
+    const path = doc.path;
+    const reopened = await withBusy(`重新载入 ${doc.title}`, () => invoke<DocumentDto>("open_path", { path }));
+    if (!state.documents.includes(doc) || doc.model.isDisposed() || doc.path !== path) continue;
     doc.model.setValue(reopened.text);
-    Object.assign(doc, reopened, { dirty: false, savedText: reopened.text, encodingStatus: "编码已识别" });
+    Object.assign(doc, reopened, { deferred: false, dirty: false, savedText: reopened.text, encodingStatus: "编码已识别" });
     monaco.editor.setModelLanguage(doc.model, reopened.language || "plaintext");
   }
   renderAll();
@@ -5041,14 +5106,20 @@ function modelMatches(doc: OpenDocument): TextMatchDto[] {
     null,
     true,
   ).filter((match) => matchAllowed(doc, match));
+  const lines = new globalThis.Map<number, string>();
   return matches.map((match) => {
-    const line = doc.model.getLineContent(match.range.startLineNumber);
+    const lineNumber = match.range.startLineNumber;
+    let line = lines.get(lineNumber);
+    if (line === undefined) {
+      line = doc.model.getLineContent(lineNumber);
+      lines.set(lineNumber, line);
+    }
     return {
       start: doc.model.getOffsetAt({ lineNumber: match.range.startLineNumber, column: match.range.startColumn }),
       end: doc.model.getOffsetAt({ lineNumber: match.range.endLineNumber, column: match.range.endColumn }),
       line: match.range.startLineNumber,
       column: match.range.startColumn,
-      lineText: line,
+      ...searchPreview(line, match.range.startColumn - 1, match.range.endLineNumber === lineNumber ? match.range.endColumn - 1 : line.length),
       matchedText: doc.model.getValueInRange(match.range),
     };
   });
@@ -6208,8 +6279,9 @@ function renderLineEndingList() {
   }
 }
 
-function setLineEnding(lineEnding: string) {
+async function setLineEnding(lineEnding: string) {
   const doc = activeDocument();
+  if (!(await ensureDocumentLoaded(doc))) return;
   const text = normalizeLineEndings(doc.model.getValue(), lineEnding);
   doc.model.setValue(text);
   doc.lineEnding = lineEnding;
@@ -6565,6 +6637,7 @@ async function openResult(path: string, line: number, column: number) {
   if (current.path !== path && current.title !== path) {
     await openPath(path);
   }
+  if (!(await ensureDocumentLoaded(activeDocument()))) return;
   editor.revealPositionInCenter({ lineNumber: line, column });
   editor.setPosition({ lineNumber: line, column });
   editor.focus();
@@ -6635,7 +6708,7 @@ function rangeFromMatch(match: TextMatchDto) {
 function renderMarkdownSurface() {
   const doc = activeDocument();
   const markdownDocument = isMarkdownLikeDocument(doc);
-  const wantsWysiwyg = markdownDocument && state.markdownEditMode === "wysiwyg";
+  const wantsWysiwyg = !doc.deferred && markdownDocument && state.markdownEditMode === "wysiwyg";
   disposeInactiveMarkdownEditors(wantsWysiwyg ? doc.id : 0);
   const cachedEntry = wantsWysiwyg ? markdownEditorCache.get(doc.id) : null;
   if (cachedEntry) activateMarkdownEditor(cachedEntry, doc);
@@ -6787,21 +6860,22 @@ function loadMarkdownModule() {
 
 function handleMarkdownEditorChange(documentId: number, bridge: MarkdownEditorBridge, markdown: string) {
   const doc = state.documents.find((item) => item.id === documentId);
-  const modelMarkdown = doc ? markdownForDocumentModel(doc, markdown) : markdown;
+  if (!doc) return;
+  const modelMarkdown = markdownForDocumentModel(doc, markdown);
+  const currentText = doc.model.getValue();
   if (
-    !doc ||
     doc.id !== state.activeId ||
     state.markdownEditMode !== "wysiwyg" ||
     bridge !== markdownEditor ||
     doc.readOnly ||
-    modelMarkdown === doc.model.getValue()
+    modelMarkdown === currentText
   ) {
-    if (doc && modelMarkdown === doc.model.getValue()) bridge.markSynchronized(markdown);
+    if (modelMarkdown === currentText) bridge.markSynchronized(markdown);
     return;
   }
   markdownSyncingFromEditor = true;
   try {
-    replaceModelText(doc.model, modelMarkdown);
+    replaceModelText(doc.model, modelMarkdown, currentText);
   } finally {
     markdownSyncingFromEditor = false;
   }
@@ -6809,8 +6883,7 @@ function handleMarkdownEditorChange(documentId: number, bridge: MarkdownEditorBr
   scheduleMarkdownImageRefresh();
 }
 
-function replaceModelText(model: monaco.editor.ITextModel, nextText: string) {
-  const currentText = model.getValue();
+function replaceModelText(model: monaco.editor.ITextModel, nextText: string, currentText = model.getValue()) {
   if (currentText === nextText) return;
 
   let prefix = 0;
@@ -6839,7 +6912,7 @@ function replaceModelText(model: monaco.editor.ITextModel, nextText: string) {
 }
 
 function markdownForDocumentModel(doc: OpenDocument, markdown: string) {
-  const normalized = markdown.replace(/\r\n?/g, "\n");
+  const normalized = markdown.includes("\r") ? markdown.replace(/\r\n?/g, "\n") : markdown;
   return doc.model.getEOL() === "\r\n" ? normalized.replace(/\n/g, "\r\n") : normalized;
 }
 
@@ -6853,16 +6926,17 @@ function syncMarkdownModelFromEditor(doc = activeDocument()) {
   ) {
     return;
   }
-  if (!markdownEditor.hasUnsynchronizedChanges()) return;
   const editorMarkdown = markdownEditor.getMarkdown();
+  if (!markdownEditor.hasUnsynchronizedChanges()) return;
   const markdown = markdownForDocumentModel(doc, editorMarkdown);
-  if (markdown === doc.model.getValue()) {
+  const currentText = doc.model.getValue();
+  if (markdown === currentText) {
     markdownEditor.markSynchronized(editorMarkdown);
     return;
   }
   markdownSyncingFromEditor = true;
   try {
-    replaceModelText(doc.model, markdown);
+    replaceModelText(doc.model, markdown, currentText);
   } finally {
     markdownSyncingFromEditor = false;
   }
@@ -6990,11 +7064,13 @@ async function renderMarkdownPreview() {
   const editorArea = preview.parentElement;
   const enabled = isMarkdownPreviewEnabled(doc);
   const resize = $("markdownPreviewResize");
-  const renderVersion = ++markdownPreviewRenderVersion;
   editorArea?.classList.toggle("preview-open", enabled);
   resize.classList.toggle("hidden", !enabled);
   preview.classList.toggle("hidden", !enabled);
   if (!enabled) {
+    markdownPreviewRenderVersion += 1;
+    markdownPreviewSnapshot = null;
+    markdownPreviewRequestedSnapshot = null;
     markdownPreviewResizeState = null;
     document.body.classList.remove("resizing-markdown-preview");
     preview.innerHTML = "";
@@ -7002,9 +7078,16 @@ async function renderMarkdownPreview() {
     return;
   }
   applyMarkdownPreviewWidth();
+  const modelVersion = doc.model.getVersionId();
+  const darkMode = state.darkMode;
+  const snapshot = JSON.stringify([doc.id, modelVersion, darkMode, doc.path, doc.title]);
+  markdownPreviewRequestedSnapshot = snapshot;
+  if (markdownPreviewSnapshot === snapshot) return;
+  const renderVersion = ++markdownPreviewRenderVersion;
   const source = doc.model.getValue();
   if (!source.trim()) {
     preview.innerHTML = markdownPreviewShell(doc, source, `<div class="markdown-preview-empty">空白 Markdown</div>`);
+    markdownPreviewSnapshot = snapshot;
     requestEditorLayout();
     return;
   }
@@ -7018,20 +7101,22 @@ async function renderMarkdownPreview() {
 
   try {
     const { renderMarkdownPreviewDiagrams, renderMarkdownPreviewHtml } = await loadMarkdownModule();
-    const body = renderMarkdownPreviewHtml(source, { darkMode: state.darkMode });
-    if (!isCurrentMarkdownPreview(renderVersion, doc, source)) return;
+    if (!isCurrentMarkdownPreview(renderVersion, doc, modelVersion, snapshot)) return;
+    const body = renderMarkdownPreviewHtml(source, { darkMode });
+    if (!isCurrentMarkdownPreview(renderVersion, doc, modelVersion, snapshot)) return;
     preview.innerHTML = markdownPreviewShell(doc, source, body);
+    markdownPreviewSnapshot = snapshot;
     const previewBody = preview.querySelector<HTMLElement>(".markdown-preview-body");
     if (previewBody) {
       refreshMarkdownResources(previewBody, doc);
-      void renderMarkdownPreviewDiagrams(previewBody, { darkMode: state.darkMode })
+      void renderMarkdownPreviewDiagrams(previewBody, { darkMode })
         .then(() => {
-          if (!isCurrentMarkdownPreview(renderVersion, doc, source)) return;
+          if (!isCurrentMarkdownPreview(renderVersion, doc, modelVersion, snapshot)) return;
           refreshMarkdownResources(previewBody, doc);
           requestEditorLayout();
         })
         .catch((error) => {
-          if (isCurrentMarkdownPreview(renderVersion, doc, source)) {
+          if (isCurrentMarkdownPreview(renderVersion, doc, modelVersion, snapshot)) {
             log(`Markdown 图表预览失败：${error instanceof Error ? error.message : String(error)}`);
           }
         });
@@ -7039,7 +7124,7 @@ async function renderMarkdownPreview() {
     requestEditorLayout();
     window.requestAnimationFrame(syncMarkdownPreviewScroll);
   } catch (error) {
-    if (!isCurrentMarkdownPreview(renderVersion, doc, source)) return;
+    if (!isCurrentMarkdownPreview(renderVersion, doc, modelVersion, snapshot)) return;
     preview.innerHTML = markdownPreviewShell(doc, source, `<div class="markdown-preview-empty">预览生成失败</div>`);
     log(`Markdown 预览失败：${error instanceof Error ? error.message : String(error)}`);
   }
@@ -7058,12 +7143,13 @@ function markdownPreviewShell(doc: OpenDocument, source: string, body: string) {
   `;
 }
 
-function isCurrentMarkdownPreview(renderVersion: number, doc: OpenDocument, source: string) {
+function isCurrentMarkdownPreview(renderVersion: number, doc: OpenDocument, modelVersion: number, snapshot: string) {
   const active = activeDocument();
   return (
     renderVersion === markdownPreviewRenderVersion &&
+    snapshot === markdownPreviewRequestedSnapshot &&
     active.id === doc.id &&
-    active.model.getValue() === source &&
+    active.model.getVersionId() === modelVersion &&
     isMarkdownPreviewEnabled(active)
   );
 }
@@ -7233,11 +7319,11 @@ function syncMarkdownPreviewScroll() {
 }
 
 function isMarkdownPreviewEnabled(doc = activeDocument()) {
-  return state.markdownEditMode === "split" && isMarkdownLikeDocument(doc);
+  return !doc.deferred && state.markdownEditMode === "split" && isMarkdownLikeDocument(doc);
 }
 
 function isMarkdownWysiwygActive(doc = activeDocument()) {
-  return state.markdownEditMode === "wysiwyg" && isMarkdownLikeDocument(doc) && markdownEditorDocumentId === doc.id;
+  return !doc.deferred && state.markdownEditMode === "wysiwyg" && isMarkdownLikeDocument(doc) && markdownEditorDocumentId === doc.id;
 }
 
 function isMarkdownEditMode(value: unknown): value is MarkdownEditMode {
@@ -8415,15 +8501,14 @@ async function restoreSession() {
     const restoredFiles = uniquePaths(snapshot.openFiles ?? []);
     let restoredCount = 0;
     for (const path of restoredFiles) {
-      try {
-        const dto = await invoke<DocumentDto>("open_path", { path });
-        addOrReplaceDocument(dto, restoredDocumentOrigin(path, snapshot));
-        const restored = state.documents.find((doc) => doc.path === path);
-        if (restored) restored.viewState = snapshot.documentViews?.[documentSessionKey(restored)];
-        restoredCount += 1;
-      } catch (error) {
-        log(`恢复文件失败：${path}：${String(error)}`);
-      }
+      const restored = createDocument({
+        title: fileNameFromPath(path), path, text: "", encoding: "UTF-8",
+        lineEnding: "LF", fileSize: 0, readOnly: true,
+        readOnlyReason: "正在加载文件", language: languageFromFilePath(path), largeFile: false,
+      }, { origin: restoredDocumentOrigin(path, snapshot), deferred: true });
+      restored.viewState = snapshot.documentViews?.[documentSessionKey(restored)];
+      state.documents.push(restored);
+      restoredCount += 1;
     }
     let restoredDraftCount = 0;
     for (const draft of snapshot.draftDocuments ?? []) {
@@ -8449,6 +8534,7 @@ async function restoreSession() {
     }
     // Switch model first so the disposed placeholder is never left attached to the editor.
     const restoredActive = activeDocument();
+    await ensureDocumentLoaded(restoredActive);
     editor.setModel(restoredActive.model);
     applyEditorPerformanceProfile(restoredActive);
     if (restoredActive.viewState) editor.restoreViewState(restoredActive.viewState);
@@ -9071,15 +9157,20 @@ function languageFromFilePath(path: string) {
 }
 
 function markdownMatchesToDto(matches: MarkdownSearchMatch[]): TextMatchDto[] {
-  return matches.map((match) => ({ ...match }));
+  return matches.map((match) => ({
+    ...match,
+    ...searchPreview(match.lineText, match.column - 1, match.column - 1 + match.matchedText.length),
+  }));
 }
 
 function highlightMatchLine(match: TextMatchDto) {
-  const start = Math.max(0, match.column - 1);
+  const start = Math.max(0, match.previewStart ?? match.column - 1);
+  const end = match.previewEnd ?? start + match.matchedText.length;
   const before = match.lineText.slice(0, start);
-  const matched = match.lineText.slice(start, start + match.matchedText.length);
-  const after = match.lineText.slice(start + match.matchedText.length);
-  return `${escapeHtml(before)}<span class="match-mark">${escapeHtml(matched || match.matchedText)}</span>${escapeHtml(after)}`;
+  const matched = match.lineText.slice(start, end);
+  const after = match.lineText.slice(end);
+  const displayedMatch = match.previewStart === undefined ? matched || match.matchedText : matched;
+  return `${escapeHtml(before)}<span class="match-mark">${escapeHtml(displayedMatch)}</span>${escapeHtml(after)}`;
 }
 
 function log(message: string) {

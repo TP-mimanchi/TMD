@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "test:keybindings": "node scripts/verify-keybindings.mjs",
     "test:markdown": "node scripts/verify-mermaid-layout.mjs",
-    "test:performance": "node scripts/verify-update-scheduler.mjs",
+    "test:performance": "node scripts/verify-update-scheduler.mjs && node scripts/verify-document-loading.mjs && node scripts/verify-markdown-sync.mjs && node scripts/verify-preview-cache.mjs && node scripts/verify-search-preview.mjs",
     "markdown:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../../scripts/sync-marktext-muya.ps1",
     "preview": "vite preview --host 127.0.0.1 --port 1420"
   },
