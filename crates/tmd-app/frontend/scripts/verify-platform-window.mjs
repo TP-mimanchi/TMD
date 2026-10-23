@@ -11,6 +11,9 @@ assert.equal(usesNativeMacWindowControls(undefined, 'MacIntel'), true);
 assert.equal(usesNativeMacWindowControls(undefined, 'Win32'), false);
 
 const config = JSON.parse(fs.readFileSync(new URL('../../tauri.macos.conf.json', import.meta.url), 'utf8'));
+const common = JSON.parse(fs.readFileSync(new URL('../../tauri.conf.json', import.meta.url), 'utf8'));
+assert.equal(common.app.windows[0].visible, true, 'Cold launch must reveal the native window without waiting for a hidden WebView');
+assert.equal(common.app.windows[0].backgroundColor, '#e8eef6', 'Native background should match the startup splash');
 const native = config.app.windows[0];
 assert.equal(native.label, 'main');
 assert.equal(native.decorations, true, 'Native buttons require real window decorations');

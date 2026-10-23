@@ -354,12 +354,6 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .on_page_load(|window, payload| {
-            // 窗口初始隐藏（show: false），页面加载完成后再显示，避免启动时先闪现空白窗口
-            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
-                let _ = window.show();
-            }
-        })
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 use tauri_plugin_window_state::WindowExt;
@@ -410,21 +404,19 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("failed to build TMD")
-        .run(|_app, _event| {
-            #[cfg(target_os = "macos")]
-            if matches!(
-                _event,
-                tauri::RunEvent::Ready | tauri::RunEvent::Reopen { .. }
-            ) {
-                reveal_main_window(_app);
+        .run(|app, event| {
+            match event {
+                tauri::RunEvent::Ready => reveal_main_window(app),
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Reopen { .. } => reveal_main_window(app),
+                _ => {}
             }
         });
 }
 
-#[cfg(target_os = "macos")]
 fn reveal_main_window(app: &tauri::AppHandle) {
-    // A hidden WKWebView must not gate the only path to showing the app.
-    // Reopen also brings the existing window back when its Dock icon is clicked.
+    // Reveal at the native lifecycle boundary. Hidden WebViews can suspend
+    // painting, so frontend load / animation frames must never gate visibility.
     if let Some(window) = app.get_webview_window("main") {
         if let Err(error) = window.show() {
             eprintln!("显示主窗口失败：{error}");
