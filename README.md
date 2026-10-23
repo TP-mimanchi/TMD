@@ -120,38 +120,19 @@ cd crates/tmd-app
 cargo tauri dev
 ```
 
-> Tauri CLI 会自动在 `crates/tmd-app/frontend` 下执行 `npm run dev` / `npm run build`，因此在仓库任意目录调用 `cargo tauri` 均可。
-
 ### 构建安装包
 
 ```bash
 cd crates/tmd-app
 cargo tauri build
 ```
-
 产物位于 `target/release/bundle`。`tauri.conf.json` 开启了 `createUpdaterArtifacts`（自动更新），构建时必须提供更新签名密钥，否则报 `no Tauri private key provided`：
 
-```bash
-cargo tauri signer generate -w ~/.tauri/tmd.key   # 两次提示直接回车，即无密码密钥
-export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/tmd.key"
-# Windows PowerShell: $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content $HOME\tmd.key -Raw)
-```
+> Tauri CLI 会自动在 `crates/tmd-app/frontend` 下执行 `npm run dev` / `npm run build`，因此在仓库任意目录调用 `cargo tauri` 均可。
 
-> 该密钥只用于自动更新产物的完整性签名，**不等于** Apple Developer ID 签名 / 公证。正式对外分发 macOS 版本请按 [Tauri 签名文档](https://v2.tauri.app/distribute/sign/macos/)配置 Apple 凭据。
 
-### 构建 macOS 应用（无本地 Mac）
 
-Tauri 不支持在 Windows 上交叉编译 macOS 应用。仓库已配置 [GitHub Actions 发布流水线](.github/workflows/release.yml)（Windows / macOS ARM64 / Linux 三平台矩阵），两种使用方式：
 
-1. **本地 Mac 构建**：安装 Xcode Command Line Tools、Rust、Node.js 后，在 Mac 上执行上面的 `npm install` + `cargo tauri build`（Apple Silicon 加 `--target aarch64-apple-darwin --features custom-protocol`）。
-2. **CI 自动构建**：把 `tauri.conf.json` 的 `version` 升到目标版本（注意 `tmd-app` / `tmd-core` / `package.json` 多处版本需一致），推送 tag 触发：
-
-   ```bash
-   git tag v<version>
-   git push origin v<version>
-   ```
-
-   流水线完成后到 [Releases](https://github.com/TP-mimanchi/TMD/releases) 下载产物。发布依赖仓库 secret `TAURI_SIGNING_PRIVATE_KEY`。
 
 ### 验证
 
