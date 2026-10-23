@@ -46,6 +46,10 @@ export interface IExportMarkdownOptions {
     listIndentation: number | string;
 }
 
+// JSON1 preserves unchanged subtrees. Weak keys release obsolete tables after
+// edits/undo history releases them; indent is part of the serialized output.
+export type TableMarkdownCache = WeakMap<ITableState, { indent: string; markdown: string }>;
+
 export default class ExportMarkdown {
     // Stack of currently-open list metas while serializing a tree (push on
     // descent into bullet/order/task list, pop on ascent). The serializer
@@ -67,6 +71,7 @@ export default class ExportMarkdown {
         }: IExportMarkdownOptions = {
             listIndentation: 1,
         },
+        private _tableCache?: TableMarkdownCache,
     ) {
         this._listType = []; // 'ul' or 'ol'
         // helper to translate the first tight item in a nested list
@@ -458,6 +463,9 @@ export default class ExportMarkdown {
     }
 
     private _serializeTable(state: ITableState, indent: string) {
+        const cached = this._tableCache?.get(state);
+        if (cached?.indent === indent)
+            return cached.markdown;
         const result: string[] = [];
         const row = state.children.length;
         const tableData = [];
@@ -535,7 +543,9 @@ export default class ExportMarkdown {
             }
         });
 
-        return `${result.join('\n')}\n`;
+        const markdown = `${result.join('\n')}\n`;
+        this._tableCache?.set(state, { indent, markdown });
+        return markdown;
     }
 
     private _serializeList(

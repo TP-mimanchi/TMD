@@ -9,6 +9,7 @@ import { getTOC } from './getTOC';
 
 import { MarkdownToState } from './markdownToState';
 import StateToMarkdown from './stateToMarkdown';
+import type { TableMarkdownCache } from './stateToMarkdown';
 
 const debug = logger('jsonState:');
 
@@ -53,6 +54,8 @@ class JSONState {
     private _state: TState[] = [];
 
     private _revision = 0;
+    private _tableMarkdownCache: TableMarkdownCache = new WeakMap();
+    private _markdownCache?: { revision: number; indentation: number | string; text: string };
 
     get revision() {
         return this._revision;
@@ -73,6 +76,8 @@ class JSONState {
     }
 
     setContent(content: TState[] | string) {
+        this._tableMarkdownCache = new WeakMap();
+        this._markdownCache = undefined;
         // A pending deferred-op batch belongs to the OUTGOING document. Applying
         // it to the new content would corrupt it (or throw and leave the flush
         // guard stuck, freezing all future edits). Drop the batch and cancel its
@@ -233,7 +238,18 @@ class JSONState {
     }
 
     getMarkdown() {
-        return this.getMarkdownFromState(this.getState());
+        const indentation = this._muya.options.listIndentation;
+        const cached = this._markdownCache;
+        if (cached?.revision === this._revision && cached.indentation === indentation)
+            return cached.text;
+
+        // The exporter only reads the tree (list metadata is cloned locally).
+        // Keep getState() defensive for external callers, without cloning every
+        // block on each keystroke just to serialize it here.
+        const text = new StateToMarkdown({ listIndentation: indentation }, this._tableMarkdownCache)
+            .generate(this._state);
+        this._markdownCache = { revision: this._revision, indentation, text };
+        return text;
     }
 
     getTOC() {

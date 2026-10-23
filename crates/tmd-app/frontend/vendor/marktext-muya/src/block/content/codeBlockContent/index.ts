@@ -164,11 +164,31 @@ class CodeBlockContent extends Content {
             (this.outContainer?.attachments?.head as HTMLPreview).update(text);
     }
 
+    private _renderedCode?: {
+        text: string;
+        language: string;
+        grammar: object | undefined;
+        highlights: string;
+        node: HTMLElement;
+    };
+
     override update(_cursor?: IRenderCursor, highlights = []) {
         const { _lang: lang, text } = this;
         // transform alias to original language
         const fullLengthLang = transformAliasToOrigin([lang])[0];
         const domNode = this.domNode!;
+        const grammar = loadedLanguages.has(fullLengthLang) ? prism.languages[fullLengthLang] : undefined;
+        const highlightKey = JSON.stringify(highlights);
+        const previous = this._renderedCode;
+        if (previous?.text === text && previous.language === fullLengthLang
+            && previous.grammar === grammar && previous.highlights === highlightKey
+            && previous.node === domNode) {
+            // Initial gutter wiring and async language loading can both call
+            // update again. Keep their side effects without rebuilding code DOM.
+            this._updateLineNumbers(text);
+            this._updatePreviewIfHave(text);
+            return;
+        }
         const code = escapeHTML(getHighlightHtml(text, highlights, true, true))
             .replace(new RegExp(MARKER_HASH['<'], 'g'), '<')
             .replace(new RegExp(MARKER_HASH['>'], 'g'), '>')
@@ -190,6 +210,7 @@ class CodeBlockContent extends Content {
         else {
             domNode.innerHTML = code;
         }
+        this._renderedCode = { text, language: fullLengthLang, grammar, highlights: highlightKey, node: domNode };
 
         this._updateLineNumbers(text);
         // Re-render the math/diagram/html preview too; undo/redo reaches this
@@ -234,6 +255,10 @@ class CodeBlockContent extends Content {
         if (this.isComposed)
             return;
 
+        // Native input already mutated contenteditable. Auto-pair/IME handling
+        // can normalize that DOM back to the PREVIOUS model text (e.g. typing
+        // ')' over an auto-inserted ')'), so text equality alone is insufficient.
+        this._renderedCode = undefined;
         const textContent = this.domNode!.textContent!;
         const { start, end } = this.getCursor()!;
         const { needRender, text } = this.autoPair(

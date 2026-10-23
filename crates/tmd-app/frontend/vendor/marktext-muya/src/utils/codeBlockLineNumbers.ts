@@ -74,6 +74,7 @@ export function repositionLineNumberSpans(
     // flush with the gutter top, while preserving correct per-line deltas for
     // wrap mode.
     let baseTop: number | null = null;
+    const tops: number[] = [];
     let node = walker.nextNode() as Text | null;
 
     while (node !== null && lineIdx < lineStarts.length) {
@@ -90,7 +91,7 @@ export function repositionLineNumberSpans(
             if (baseTop === null)
                 baseTop = measured;
             if (lineIdx < spans.length)
-                spans[lineIdx].style.top = `${measured - baseTop}px`;
+                tops[lineIdx] = measured - baseTop;
             lineIdx++;
         }
 
@@ -105,8 +106,15 @@ export function repositionLineNumberSpans(
     if (lineIdx < spans.length) {
         const lineH = Number.parseFloat(getComputedStyle(wrapper).lineHeight) || 24;
         for (let i = lineIdx; i < spans.length; i++) {
-            const prevTop = i > 0 ? Number.parseFloat(spans[i - 1].style.top || '0') : 0;
-            spans[i].style.top = i > 0 ? `${prevTop + lineH}px` : '0px';
+            tops[i] = i > 0 ? tops[i - 1] + lineH : 0;
         }
+    }
+
+    // Batch every geometry read before changing styles: alternating reads and
+    // writes forces a layout for each line in long/wrapped code blocks.
+    for (let i = 0; i < spans.length; i++) {
+        const top = `${tops[i]}px`;
+        if (spans[i].style.top !== top)
+            spans[i].style.top = top;
     }
 }
